@@ -396,6 +396,17 @@
   }
   .tabs .nav-link { text-decoration: none; }
   .tabs .nav-link .ext { margin-left: auto; width: 12px; height: 12px; opacity: .65; }
+  /* Auto Roll Tables' own logo, painted in the rail's colour through its alpha.
+     The box is reserved unconditionally but only filled where masking works,
+     so a browser without it shows a gap rather than a solid square. */
+  .tabs .nav-link .ic-art { width: 18px; height: 18px; flex-shrink: 0; }
+  @supports ((mask-image: none) or (-webkit-mask-image: none)) {
+    .tabs .nav-link .ic-art {
+      background-color: currentColor;
+      -webkit-mask: url("../assets/logo-autorolltables.png") no-repeat center / contain;
+      mask: url("../assets/logo-autorolltables.png") no-repeat center / contain;
+    }
+  }
   .tabs .nav-link:hover { background: var(--tab-hover); color: var(--ink); }
   .tabs button:hover:not(.active) { background: var(--tab-hover); color: var(--ink); }
   .tabs button.active { background: var(--tab-bg); color: var(--ink); font-weight: 600; }

@@ -1,6 +1,6 @@
 // Service worker: makes the app installable and usable with no connection.
 // Bump VERSION on any deploy that should drop the old cache.
-const VERSION = 'v90';
+const VERSION = 'v91';
 const CACHE = `chargen-${VERSION}`;
 
 // The shell needed to boot offline. The versioned css/js are not listed: they
@@ -12,7 +12,9 @@ const PRECACHE = [
   'manifest.webmanifest',
   'favicon.svg',
   'assets/icon-192.png',
-  'assets/icon-512.png'
+  'assets/icon-512.png',
+  // the sidebar's Auto Roll Tables mark, which the stylesheet paints as a mask
+  'assets/logo-autorolltables.png'
 ];
 
 self.addEventListener('install', e => {

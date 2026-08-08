@@ -46,6 +46,11 @@ feature bullets, the file-structure note in "Run It", and any counts
 - Known bad upstream fields for a5e-mm, deliberately not shown: `alignment`
   (reads "chaotic evil" for all 586 creatures) and `environments` (always
   empty). Re-check these if the data is refreshed.
+- `assets/logo-autorolltables.png` is the Auto Roll Tables mark for the
+  sidebar's "More" link, pulled from that site by
+  `node tools/fetch-link-logos.js`. It is an alpha mask, not a picture: the
+  stylesheet paints currentColor through it. Re-run the tool if they change
+  their logo.
 
 ## Licensing (important)
 - Keep every attribution in the Settings tab, README.md, and the page footer
