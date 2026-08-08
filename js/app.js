@@ -1588,7 +1588,7 @@ const CAT_MERGE = {
   "Combat":"Character", "Class":"Character", "Subclass":"Character",
   "Action":"Character", "Rules":"Character", "Condition":"Character",
   "Species Trait":"Character", "Background":"Character", "Feat":"Character",
-  "Feature":"Character",
+  "Feature":"Character", "Rest":"Character",
   "Magic Item":"Equipment"
 };
 const ruleCat = r => { const base = r.c.split(" · ")[0]; return CAT_MERGE[base] || base; };
