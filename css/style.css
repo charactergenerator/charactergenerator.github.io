@@ -16,6 +16,8 @@
     --toast-ink: #ffffff;
     --shadow: rgba(0,0,0,.06);
     --good: #2f6b3a;
+    /* the panel fill at 75%, so the background mark reads through the chrome */
+    --panel-75: rgba(255,253,248,.75);
   }
   body.dark {
     --bg: #0e0f11;
@@ -35,6 +37,7 @@
     --toast-ink: #e8eaed;
     --shadow: rgba(0,0,0,.5);
     --good: #4ade80;
+    --panel-75: rgba(23,24,27,.75);
   }
   /* Dark mode goes modern: sans type, softer corners, green accent */
   body.dark { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
@@ -56,13 +59,29 @@
     font-family: Georgia, 'Times New Roman', serif;
     background: var(--bg); color: var(--ink);
   }
+  /* A big watermark bleeding off the top left, behind everything. It sits at
+     its static position pulled back by the negative margin, so it never scrolls
+     and never takes a click. The art is dark, which suits the parchment theme;
+     dark mode inverts it to a light mark instead. */
+  .bgimage {
+    margin: -10em;
+    position: fixed;
+    z-index: 0;
+    opacity: 0.15;
+    pointer-events: none;
+  }
+  .bgimage img { max-width: none; }
+  body.dark .bgimage img { filter: invert(1); }
   h1 { margin: 0 0 .25rem; color: var(--accent); font-variant: small-caps; letter-spacing: 1px; }
   .sub { color: var(--muted); margin-bottom: 1.25rem; font-size: .95rem; }
   /* Pages are built from modules rather than one page-wide box: the heading and
      any page-level actions sit on the background, and each block of content is
      its own card. Nothing wraps a whole tab. */
+  /* Modules and the sidebar are filled at 75% so the watermark reads through
+     them. The fill is translucent rather than the box being made see-through,
+     which would take the text down with it. */
   .panel {
-    background: var(--panel); border: 1px solid var(--line);
+    background: var(--panel-75); border: 1px solid var(--line);
     border-radius: 8px; padding: 1.25rem;
     box-shadow: 0 2px 6px var(--shadow);
   }
@@ -347,7 +366,8 @@
   /* App shell: sidebar navigation on desktop and tablet.
      The shell is flush left so the nav never floats in dead space on wide screens;
      the content area carries its own max width instead. */
-  .app { display: flex; gap: 1.5rem; align-items: flex-start; }
+  /* Positioned so the whole shell stacks above the watermark behind it */
+  .app { display: flex; gap: 1.5rem; align-items: flex-start; position: relative; z-index: 1; }
   .content { flex: 1; min-width: 0; max-width: 1400px; }
   /* Sidebar structure follows the Auto Roll Tables shell: a full-height rail
      with a rule down its right edge, a ruled-off brand block at the top, the
@@ -363,6 +383,7 @@
     margin: -1.5rem 0 -1.5rem -1.5rem;
     height: 100vh;
     overflow: hidden;
+    background: var(--panel-75);
     border-right: 1px solid var(--line);
   }
   .brand {
@@ -636,6 +657,8 @@
     .tabs {
       position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 90;
       flex-direction: row; width: auto; gap: 0; margin: 0;
+      /* The bar sits over whatever you are reading, so it stays solid rather
+         than letting the watermark and the page show through it */
       background: var(--panel); border-top: 1px solid var(--line);
       padding: .3rem .2rem calc(.3rem + env(safe-area-inset-bottom, 0px));
       box-shadow: 0 -2px 10px var(--shadow);
@@ -691,7 +714,7 @@
   @media print {
     @page { margin: 12mm; }
     body { background: #fff; color: #000; padding: 0; }
-    .tabs, .brand, h1, .footer-note, .overlay, #rollToast,
+    .tabs, .brand, h1, .footer-note, .overlay, #rollToast, .bgimage,
     .no-print, .hp-tracker, .cond-menu, .xp-add, .purse-row + .purse-row,
     button, .gear-btn, .attune-btn, #sheetSpellFilter,
     .tabpage:not(.active) { display: none !important; }
