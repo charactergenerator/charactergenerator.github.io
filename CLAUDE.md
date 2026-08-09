@@ -8,7 +8,21 @@ feature bullets, the file-structure note in "Run It", and any counts
 
 ## Deploys
 - The site is GitHub Pages from this repo (charactergenerator.github.io).
-- Publishing = commit and push to main. Nothing else to do.
+- **Never push to main.** Every change goes on a short topically named branch
+  (`bg-mark`, `mobile-fixes`), gets pushed, and lands through a pull request.
+  Merging the PR is what publishes. Same flow as the sibling autorolltables and
+  dmscreen repos.
+- Pushing the branch is where the agent's part ends: `git push` prints the
+  compare URL, and dangeratio opens and merges the PR on GitHub. There is no
+  `gh` CLI on this machine and no `GH_TOKEN`, so the PR cannot be opened from
+  the terminal.
+- Commits are authored as `dangeratio
+  <7716602+dangeratio@users.noreply.github.com>`, set in this repo's local git
+  config, so they are attributed to the account rather than to the machine's
+  stale global identity.
+- Before pushing more commits to an existing PR's branch, check that the PR is
+  still open. If it has been merged or closed, branch again from the updated
+  main and open a new PR.
 - Bump the `?v=N` query on the css/js links in index.html on every deploy
   that changes those files (cache busting). Use safe UTF-8 file handling
   when editing index.html from scripts (emoji corruption risk with
