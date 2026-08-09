@@ -67,7 +67,7 @@
     margin: -10em;
     position: fixed;
     z-index: 0;
-    opacity: 0.0375;
+    opacity: 0.025;
     pointer-events: none;
   }
   .bgimage img { max-width: none; }
