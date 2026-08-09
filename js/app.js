@@ -1253,7 +1253,7 @@ document.querySelectorAll(".tabs button").forEach(b=>{
   b.addEventListener("click", ()=>{
     activateTab(b);
     if (b.dataset.tab==="saved") renderSavedList();
-    if (b.dataset.tab==="rules") loadBestiary();
+    if (b.dataset.tab==="rules") { loadBestiary(); loadItems(); }
     if (b.dataset.tab==="create") {
       // Leaving a saved-character view: give the creator a fresh start and drop
       // the old sheet, which would otherwise sit there looking live while its
@@ -1638,13 +1638,25 @@ function renderRules(q) {
   let hits = !q ? pool : pool.filter(r =>
     r.t.toLowerCase().includes(q) || r.d.toLowerCase().includes(q) || r.c.toLowerCase().includes(q));
   const hi = txt => q ? txt.replace(new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"), "<mark>$1</mark>") : txt;
-  // Creatures sort by challenge; everything else keeps its natural order
+  // Creatures sort by challenge. Everything else keeps its natural order until
+  // a search is typed, at which point a hit on the name beats a hit buried in
+  // the text: with a couple of thousand items in the pool, searching "torch"
+  // otherwise turned up the packs that list one long before the torch itself.
   if (ruleFilter === "Creature") hits = hits.slice().sort((a,b)=> a.cr - b.cr || a.t.localeCompare(b.t));
+  else if (q) {
+    const rank = r => {
+      const t = r.t.toLowerCase();
+      return t === q ? 0 : t.startsWith(q) ? 1 : t.includes(q) ? 2 : 3;
+    };
+    hits = hits.map((r,i)=>({r,i})).sort((a,b)=> rank(a.r) - rank(b.r) || a.i - b.i).map(x=>x.r);
+  }
   const shown = hits.slice(0, RULE_CAP);
   const where = [ruleSrc, ruleFilter].filter(Boolean).join(" · ");
   const note =
-    bestiaryState === "loading" ? `<div class="rule-more">Loading 586 creature stat blocks in the background...</div>` :
-    bestiaryState === "failed" ? `<div class="rule-more">Creature stat blocks could not be loaded. <span class="ref-link" onclick="bestiaryState='idle';loadBestiary()">Try again</span>.</div>` : "";
+    (bestiaryState === "loading" ? `<div class="rule-more">Loading 586 creature stat blocks in the background...</div>` :
+     bestiaryState === "failed" ? `<div class="rule-more">Creature stat blocks could not be loaded. <span class="ref-link" onclick="bestiaryState='idle';loadBestiary()">Try again</span>.</div>` : "") +
+    (itemsState === "loading" ? `<div class="rule-more">Loading the full equipment catalogue in the background...</div>` :
+     itemsState === "failed" ? `<div class="rule-more">The equipment catalogue could not be loaded. <span class="ref-link" onclick="itemsState='idle';loadItems()">Try again</span>.</div>` : "");
   document.getElementById("rulesResults").innerHTML = note + (hits.length
     ? (hits.length > RULE_CAP
         ? `<div class="rule-more">Showing the first ${RULE_CAP} of <b>${hits.length}</b> matches${ruleFilter==="Creature"?", lowest challenge first":""}. Keep typing, or narrow it with the chips above.</div>` : "") +
@@ -1687,6 +1699,50 @@ function onBestiaryLoaded() {
     const names = [...(c.tr||[]).map(t=>t.n), ...(c.ac2||[]).map(t=>t.n)];
     if (names.length) bits.push(`Traits and actions: ${names.join(", ")}.`);
     RULES.push({ c:"Creature", t:c.n, src:"Monstrous Menagerie", cr:c.cr, creature:c.n, d:bits.join(" ") });
+  });
+  renderRuleCats();
+  renderRules(rulesInput.value);
+}
+
+// ---------- EXTENDED EQUIPMENT ----------
+// The full item catalogue is another megabyte, so it rides along with the
+// bestiary: fetched the first time the Reference tab is opened, then folded in
+// under Equipment. Compiled by the companion DM Screen project; see Settings
+// for who published what.
+let itemsState = "idle";      // idle | loading | ready | failed
+
+function loadItems() {
+  if (itemsState !== "idle") return;
+  itemsState = "loading";
+  renderRuleCats();
+  const s = document.createElement("script");
+  s.src = "js/items.js?v=" + (document.querySelector('script[src*="app.js"]').src.split("v=")[1] || "1");
+  s.onerror = () => { itemsState = "failed"; renderRuleCats(); renderRules(rulesInput.value); };
+  document.body.appendChild(s);
+}
+
+// items.js calls this once it has defined EXTRA_ITEMS
+function onItemsLoaded() {
+  itemsState = "ready";
+  // The hand-written SRD gear and magic items stay authoritative: they are
+  // wired into the sheet and the equipment picker, so a catalogue entry of the
+  // same name would only show up twice saying much the same thing.
+  const have = new Set(RULES
+    .filter(r => /^(Equipment|Magic Item)/.test(r.c))
+    .map(r => r.t.toLowerCase()));
+  EXTRA_ITEMS.forEach(i => {
+    if (have.has(i.n.toLowerCase())) return;
+    have.add(i.n.toLowerCase());
+    const head = [i.r, i.a].filter(Boolean).join(", ");
+    const stats = [i.p && `Cost ${i.p}`, i.w && `Weight ${i.w}`, i.x].filter(Boolean).join(". ");
+    const d = [head && head.charAt(0).toUpperCase() + head.slice(1) + ".", stats && stats + ".", i.d]
+      .filter(Boolean).join(" ");
+    RULES.push({
+      c: (i.m ? "Magic Item" : "Equipment") + (i.c ? " · " + i.c : ""),
+      t: i.n,
+      src: ITEM_SOURCES[i.s],
+      d: d || i.n
+    });
   });
   renderRuleCats();
   renderRules(rulesInput.value);

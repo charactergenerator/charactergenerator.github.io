@@ -39,7 +39,7 @@ The sheet is a live play surface, not a printout:
 
 ## 📚 Look Anything Up
 
-- 🔍 A **Reference** tab with **1,800+ searchable entries**: every spell, weapon, and piece of gear, all class features, subclasses, feats, magic items, and species traits, plus conditions, combat actions, spellcasting, and rests
+- 🔍 A **Reference** tab with **3,500+ searchable entries**: every spell, all class features, subclasses, feats, and species traits, conditions, combat actions, spellcasting and rests, 586 creature stat blocks, and an **Equipment catalogue of 1,800+ items** from adventuring gear and trade goods to artifacts. Typing a name puts that name at the top rather than everything that merely mentions it
 - 🏷️ **Source and type chips** with live counts filter the list and combine with the search box, so you can stay in the SRD or reach into the Level Up books. Types condense to Spell, Creature, Character, Equipment, and Rest; each card still names its own kind
 - 🐉 **586 creatures** from the Monstrous Menagerie sit in the Reference as a Creature type: search them alongside everything else by name, type, size, or trait, and open a full stat block with rollable ability checks. The megabyte of stat blocks loads in the background the first time you open Reference
 - ℹ️ Nearly everything is clickable: sheet features, species traits, equipment, the level-up and rest overlays, and the Basics page all open in-place reference definitions
@@ -59,7 +59,7 @@ The sheet is a live play surface, not a printout:
 
 ## 🚀 Run It
 
-Visit **[charactergenerator.github.io](https://charactergenerator.github.io/)**, or clone and open `index.html` in any browser. Structure: `index.html` (markup), `css/style.css` (both themes), `js/data.js` (SRD content), `js/open5e.js` (Level Up spells, feats, backgrounds, conditions, and the Marshal), `js/bestiary.js` (creatures, loaded on demand), `js/app.js` (app logic). No dependencies; works offline once loaded.
+Visit **[charactergenerator.github.io](https://charactergenerator.github.io/)**, or clone and open `index.html` in any browser. Structure: `index.html` (markup), `css/style.css` (both themes), `js/data.js` (SRD content), `js/open5e.js` (Level Up spells, feats, backgrounds, conditions, and the Marshal), `js/bestiary.js` (creatures) and `js/items.js` (the equipment catalogue), both loaded on demand, `js/app.js` (app logic). No dependencies; works offline once loaded.
 
 ## 📄 License
 
@@ -68,6 +68,9 @@ Built from freely licensed game content. Full attribution is in the app under **
 - **System Reference Document 5.2** (c) 2025 Wizards of the Coast LLC, licensed under the [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/legalcode).
 - **Level Up: Advanced 5th Edition** *Adventurer's Guide*, *Dungeon Delver's Guide*, and *Gate Pass Gazette* (c) EN Publishing, dual licensed CC BY 4.0 / OGL 1.0a and used here under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode). See [a5esrd.com](https://a5esrd.com/a5esrd).
 - **Level Up: Monstrous Menagerie** (c) 2021 EN Publishing, author Paul Hughes, released under the Open Game License v1.0a only and used here under that licence. See [OGL.txt](OGL.txt) for the licence and its Section 15 notice.
+- **System Reference Document 5.1** (c) 2023 Wizards of the Coast LLC, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode). Source of much of the Reference tab's equipment; where an item is in both, the SRD 5.2 version is the one the sheet uses.
+- **Vault of Magic for 5th Edition** (c) 2022 and **Tome of Heroes** (c) 2022 Open Design LLC, published by [Kobold Press](https://koboldpress.com), and **Critical Role: Tal'Dorei Campaign Setting** (c) 2017 Green Ronin Publishing, LLC: further magic items, used under the Open Game License v1.0a. See [OGL.txt](OGL.txt).
+- The extended equipment catalogue is the item set compiled by the companion [DM Screen](https://dmscreen.github.io/) project.
 - EN Publishing content was retrieved through the [Open5e](https://open5e.com) API.
 
 Content has been abridged and reformatted. Not affiliated with, endorsed, or sponsored by any of these publishers. Dungeons & Dragons is a trademark of Wizards of the Coast LLC; Level Up: Advanced 5th Edition is a trademark of EN Publishing.

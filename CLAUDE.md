@@ -46,6 +46,14 @@ feature bullets, the file-structure note in "Run It", and any counts
 - Known bad upstream fields for a5e-mm, deliberately not shown: `alignment`
   (reads "chaotic evil" for all 586 creatures) and `environments` (always
   empty). Re-check these if the data is refreshed.
+- `js/items.js` is the Reference tab's extended Equipment set (~2,000 items),
+  built by `node tools/build-items.js` from the item catalogue the companion
+  DM Screen project publishes at `https://dmscreen.github.io/data/items.json`.
+  It caches the raw pull under `tools/raw/dmscreen/`; delete it to re-pull. It
+  is ~1.4 MB and, like the bestiary, is injected the first time the Reference
+  tab is opened; it calls `onItemsLoaded()`, which folds the items into RULES
+  and skips any whose name the hand-written SRD data already covers, since
+  those are the ones wired into the sheet and the equipment picker.
 - `assets/logo-autorolltables.png` is the Auto Roll Tables mark for the
   sidebar's "More" link, pulled from that site by
   `node tools/fetch-link-logos.js`. It is an alpha mask, not a picture: the
@@ -57,7 +65,10 @@ feature bullets, the file-structure note in "Run It", and any counts
   intact and accurate. Sources are not all under the same licence.
 - SRD 5.2 and the A5E Adventurer's Guide / Dungeon Delver's Guide / Gate Pass
   Gazette are CC-BY-4.0.
-- Monstrous Menagerie (the creatures) is **OGL 1.0a only**. `OGL.txt` carries the
-  full licence and its Section 15 notice, and must stay in the repo and stay
-  linked from Settings. If creature content is ever removed, that notice can
-  go with it; if content from another OGL source is added, add it to Section 15.
+- SRD 5.1, the source of much of the Reference tab's equipment, is CC-BY-4.0.
+- Monstrous Menagerie (the creatures) and the Kobold Press (Vault of Magic,
+  Tome of Heroes) and Green Ronin (Tal'Dorei) magic items are **OGL 1.0a only**.
+  `OGL.txt` carries the full licence and its Section 15 notice, lists which
+  content it covers, and must stay in the repo and stay linked from Settings.
+  If any of that content is removed, its notice can go with it; if content from
+  another OGL source is added, add it to Section 15.

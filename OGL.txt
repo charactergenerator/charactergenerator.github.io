@@ -1,9 +1,14 @@
 OPEN GAME LICENSE Version 1.0a
 
 This notice covers the Open Game Content used by Character Generator
-(https://charactergenerator.github.io/): the creatures listed under
-the Reference tab,
-taken from Level Up: Monstrous Menagerie.
+(https://charactergenerator.github.io/):
+
+  - the creatures listed under the Reference tab, taken from
+    Level Up: Monstrous Menagerie;
+  - the magic items under the Reference tab credited to Vault of Magic or
+    Tome of Heroes, published by Kobold Press (Open Design LLC);
+  - the single magic item credited to Tal'Dorei, from the Critical Role:
+    Tal'Dorei Campaign Setting published by Green Ronin Publishing.
 
 All other content in this app comes from sources licensed under Creative
 Commons Attribution 4.0 and is credited in the Settings tab; it is not Open
@@ -33,6 +38,9 @@ Level Up: Advanced 5th Edition Adventurer’s Guide Copyright 2021, EN Publishin
 Level Up: Advanced 5th Edition Monstrous Menagerie Copyright 2021, EN Publishing; Author Paul Hughes.
 Level Up: Advanced 5th Edition Dungeon Delver’s Guide Copyright 2023, EN Publishing.
 Level Up: Advanced 5th Edition Gate Pass Gazette Copyright 2022, EN Publishing.
+Vault of Magic for 5th Edition Copyright 2022, Open Design LLC; Authors Celeste Conowitch, Jeff Lee, Sarah Madsen, Ben McFarland, Kelly Pawlik, Brian Suskind, Mike Welham, and Steve Winter.
+Tome of Heroes Copyright 2022, Open Design LLC; Authors Celeste Conowitch, Sarah Madsen, Jon Sawatsky, Brian Suskind, and Mike Welham.
+Critical Role: Tal'Dorei Campaign Setting Copyright 2017, Green Ronin Publishing, LLC; Authors Matthew Mercer and James Haeck.
 Character Generator Copyright 2026, dangeratio.
 
 END OF LICENSE

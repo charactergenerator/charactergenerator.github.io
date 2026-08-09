@@ -1,0 +1,5 @@
+# Caches the generators pull down; the generated js/ files are what ship.
+tools/raw/
+
+# Files on their way out, kept rather than deleted.
+Trash/
