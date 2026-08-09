@@ -1593,27 +1593,17 @@ const CAT_MERGE = {
 };
 const ruleCat = r => { const base = r.c.split(" · ")[0]; return CAT_MERGE[base] || base; };
 let ruleFilter = null;
-let ruleSrc = null;
 // Long lists are capped so a bare search doesn't build thousands of cards
 const RULE_CAP = 200;
-function ruleSources() {
-  const counts = {};
-  RULES.forEach(r=>{ counts[r.src||SRC_SRD] = (counts[r.src||SRC_SRD]||0)+1; });
-  return counts;
-}
+// Only Type filters the list. Each card still names the book it came from, so
+// the source is there to read without being another row of chips to get past.
 function renderRuleCats() {
-  const pool = ruleSrc ? RULES.filter(r=>(r.src||SRC_SRD)===ruleSrc) : RULES;
   const counts = {};
-  pool.forEach(r=>{ const k = ruleCat(r); counts[k] = (counts[k]||0)+1; });
+  RULES.forEach(r=>{ const k = ruleCat(r); counts[k] = (counts[k]||0)+1; });
   const cats = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
-  const srcs = ruleSources();
   document.getElementById("ruleCats").innerHTML =
-    `<div class="chip-row"><span class="chip-lbl">Source</span>` +
-    `<span class="cat-chip${ruleSrc===null?" picked":""}" onclick="setRuleSrc(null)">All <small>${RULES.length}</small></span>` +
-    Object.keys(srcs).sort((a,b)=>srcs[b]-srcs[a]).map(s=>
-      `<span class="cat-chip${ruleSrc===s?" picked":""}" onclick="setRuleSrc('${escQ(s)}')">${s} <small>${srcs[s]}</small></span>`).join("") +
-    `</div><div class="chip-row"><span class="chip-lbl">Type</span>` +
-    `<span class="cat-chip${ruleFilter===null?" picked":""}" onclick="setRuleFilter(null)">All <small>${pool.length}</small></span>` +
+    `<div class="chip-row"><span class="chip-lbl">Type</span>` +
+    `<span class="cat-chip${ruleFilter===null?" picked":""}" onclick="setRuleFilter(null)">All <small>${RULES.length}</small></span>` +
     cats.map(c=>`<span class="cat-chip${ruleFilter===c?" picked":""}" onclick="setRuleFilter('${escQ(c)}')">${c} <small>${counts[c]}</small></span>`).join("") +
     `</div>`;
 }
@@ -1622,18 +1612,10 @@ function setRuleFilter(c) {
   renderRuleCats();
   renderRules(rulesInput.value);
 }
-function setRuleSrc(s) {
-  ruleSrc = (ruleSrc === s) ? null : s;
-  // A category that doesn't exist in the new source would show an empty list
-  if (ruleSrc && ruleFilter && !RULES.some(r=>(r.src||SRC_SRD)===ruleSrc && ruleCat(r)===ruleFilter)) ruleFilter = null;
-  renderRuleCats();
-  renderRules(rulesInput.value);
-}
 
 function renderRules(q) {
   q = (q||"").trim().toLowerCase();
   let pool = RULES;
-  if (ruleSrc) pool = pool.filter(r=>(r.src||SRC_SRD)===ruleSrc);
   if (ruleFilter) pool = pool.filter(r=>ruleCat(r)===ruleFilter);
   let hits = !q ? pool : pool.filter(r =>
     r.t.toLowerCase().includes(q) || r.d.toLowerCase().includes(q) || r.c.toLowerCase().includes(q));
@@ -1651,7 +1633,7 @@ function renderRules(q) {
     hits = hits.map((r,i)=>({r,i})).sort((a,b)=> rank(a.r) - rank(b.r) || a.i - b.i).map(x=>x.r);
   }
   const shown = hits.slice(0, RULE_CAP);
-  const where = [ruleSrc, ruleFilter].filter(Boolean).join(" · ");
+  const where = ruleFilter || "";
   const note =
     (bestiaryState === "loading" ? `<div class="rule-more">Loading 586 creature stat blocks in the background...</div>` :
      bestiaryState === "failed" ? `<div class="rule-more">Creature stat blocks could not be loaded. <span class="ref-link" onclick="bestiaryState='idle';loadBestiary()">Try again</span>.</div>` : "") +
@@ -1668,7 +1650,7 @@ function renderRules(q) {
           ${r.creature?`<div style="font-size:.85rem;color:var(--accent)">Open the full stat block →</div>`:""}
           ${r.url?`<a href="${r.url}" target="_blank" rel="noopener" style="font-size:.85rem">Full text at ${src===SRC_SRD?"the SRD":"a5esrd.com"} ↗</a>`:""}</div>`;
       }).join("")
-    : `<div class="empty">Nothing matched${where?` in ${where}`:""}. Try another term${where?` or pick <span class="ref-link" onclick="setRuleSrc(null);setRuleFilter(null)">All</span>`:""}.</div>`);
+    : `<div class="empty">Nothing matched${where?` in ${where}`:""}. Try another term${where?` or pick <span class="ref-link" onclick="setRuleFilter(null)">All</span>`:""}.</div>`);
 }
 rulesInput.addEventListener("input", ()=>renderRules(rulesInput.value));
 

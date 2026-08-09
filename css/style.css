@@ -482,9 +482,8 @@
 
   /* Category filters above the reference search */
   .cat-chips { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .7rem; }
-  /* Two rows of chips: one for source, one for type */
+  /* One row of chips, labelled, filtering by type */
   .chip-row { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; width: 100%; }
-  .chip-row + .chip-row { margin-top: .35rem; padding-top: .35rem; border-top: 1px dotted var(--line); }
   .chip-lbl { font-size: .7rem; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); min-width: 4.2rem; }
   /* Which book an entry came from */
   .src-tag {

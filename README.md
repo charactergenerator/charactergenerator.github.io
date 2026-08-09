@@ -40,7 +40,7 @@ The sheet is a live play surface, not a printout:
 ## 📚 Look Anything Up
 
 - 🔍 A **Reference** tab with **3,500+ searchable entries**: every spell, all class features, subclasses, feats, and species traits, conditions, combat actions, spellcasting and rests, 586 creature stat blocks, and an **Equipment catalogue of 1,800+ items** from adventuring gear and trade goods to artifacts. Typing a name puts that name at the top rather than everything that merely mentions it
-- 🏷️ **Source and type chips** with live counts filter the list and combine with the search box, so you can stay in the SRD or reach into the Level Up books. Types condense to Spell, Creature, Character, Equipment, and Rest; each card still names its own kind
+- 🏷️ **Type chips** with live counts filter the list and combine with the search box. Types condense to Spell, Creature, Character, and Equipment; each card still names its own kind and the book it came from
 - 🐉 **586 creatures** from the Monstrous Menagerie sit in the Reference as a Creature type: search them alongside everything else by name, type, size, or trait, and open a full stat block with rollable ability checks. The megabyte of stat blocks loads in the background the first time you open Reference
 - ℹ️ Nearly everything is clickable: sheet features, species traits, equipment, the level-up and rest overlays, and the Basics page all open in-place reference definitions
 - 🧭 A beginner-friendly **Basics** tab (the whole game on one page, with clickable dice-shaped icons)
