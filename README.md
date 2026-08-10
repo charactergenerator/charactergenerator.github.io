@@ -53,6 +53,7 @@ The sheet is a live play surface, not a printout:
 - ⬇️⬆️ **Backup & Restore** under Settings writes every character to one dated JSON file and reads them back on any machine. Restoring adds to what is already there rather than replacing it
 - 🌙 Modern dark mode by default, ☀️ parchment light mode in settings
 - 📱 Sidebar navigation on desktop and tablet, app-style bottom bar on phones. Settings sits in its own block at the foot of the sidebar. The sidebar switches on hover by default; Settings has a hover-or-click toggle
+- 📲 On a phone the bar's last stop is **More**, a sheet of tiles holding Settings and the sister tools, since five slots cannot hold everything the sidebar does
 - 🧱 Every page is built from modules: the heading sits on the page and each block of content is its own card, rather than one box wrapping the whole tab
 - 🔗 A **More** group at the bottom of the sidebar links out to the sister tools, [Auto Roll Tables](https://autorolltables.github.io/) and [DM Screen](https://dmscreen.github.io/)
 - 📲 **Installable**: Chrome offers an Install button in the address bar, and iOS can Add to Home Screen. It then opens in its own window with no browser chrome, and works with no connection at all

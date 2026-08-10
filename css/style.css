@@ -417,17 +417,21 @@
   }
   .tabs .nav-link { text-decoration: none; }
   .tabs .nav-link .ext { margin-left: auto; width: 12px; height: 12px; opacity: .65; }
-  /* Auto Roll Tables' own logo, painted in the rail's colour through its alpha.
-     The box is reserved unconditionally but only filled where masking works,
-     so a browser without it shows a gap rather than a solid square. */
-  .tabs .nav-link .ic-art { width: 18px; height: 18px; flex-shrink: 0; }
+  /* Auto Roll Tables' own logo, painted in the surrounding colour through its
+     alpha. The box is reserved unconditionally but only filled where masking
+     works, so a browser without it shows a gap rather than a solid square. */
+  .ic-art { display: inline-block; flex-shrink: 0; }
+  .tabs .nav-link .ic-art { width: 18px; height: 18px; }
   @supports ((mask-image: none) or (-webkit-mask-image: none)) {
-    .tabs .nav-link .ic-art {
+    .ic-art {
       background-color: currentColor;
       -webkit-mask: url("../assets/logo-autorolltables.png") no-repeat center / contain;
       mask: url("../assets/logo-autorolltables.png") no-repeat center / contain;
     }
   }
+  /* The bottom bar's last stop is Settings on desktop and More on a phone;
+     both marks and both labels ship, and the media query picks one */
+  .tabs .ic-grid, .tabs .lbl-narrow { display: none; }
   .tabs .nav-link:hover { background: var(--tab-hover); color: var(--ink); }
   .tabs button:hover:not(.active) { background: var(--tab-hover); color: var(--ink); }
   .tabs button.active { background: var(--tab-bg); color: var(--ink); font-weight: 600; }
@@ -645,7 +649,10 @@
 
   /* Mobile: fixed bottom navigation bar */
   @media (max-width: 600px) {
-    body { padding: .6rem; padding-bottom: 5rem; }
+    /* The bar's own height grows by the home-indicator inset, so the space
+       reserved for it has to grow too. A flat 5rem was shorter than the bar on
+       any phone with an inset, which put the footer underneath it. */
+    body { padding: .6rem; padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
     h1 { display: flex; align-items: center; gap: .5rem; font-size: 1.3rem; margin-bottom: .75rem; }
     h1 .brand-logo { width: 30px; height: 30px; }
     .app { display: block; }
@@ -708,7 +715,53 @@
     /* Chips wrap over several rows on a phone at a slightly smaller size */
     .cond-menu { min-width: 0; width: min(22rem, calc(100vw - 2rem)); }
     .purse-row input, .xp-add input { width: 4rem; }
+    /* The bottom bar's last stop opens a sheet instead of a page, so it takes
+       the grid mark and the shorter label */
+    .tabs .ic-gear, .tabs .lbl-wide { display: none; }
+    .tabs .ic-grid { display: block; }
+    .tabs .lbl-narrow { display: inline; }
+    /* while its sheet is up, More reads as the place you are */
+    .tabs button.sheet-open { color: var(--accent); }
+    .tabs button.sheet-open svg { stroke: var(--accent); }
   }
+
+  /* An ability score is a stepper either side of a number, and at three across
+     a 390px phone the row had no slack left at all: any difference in how a
+     browser measures the buttons pushed it past the edge. Two across gives
+     each score room and makes the steppers easier to hit. */
+  @media (max-width: 430px) {
+    .abilities { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* The More sheet: the phone's stand-in for the parts of the sidebar that the
+     five-slot bottom bar has no room for. */
+  .more-sheet {
+    display: none;
+    position: fixed; inset: 0;
+    bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px));
+    background: var(--bg); z-index: 80;
+    overflow-y: auto; padding: 1rem;
+  }
+  .more-sheet.open { display: block; }
+  .more-label {
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--muted); padding: .4rem .2rem .5rem;
+  }
+  .more-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: .6rem; }
+  .more-tile {
+    display: flex; flex-direction: column; align-items: center; gap: .5rem;
+    padding: .95rem .4rem;
+    background: var(--panel-75); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--muted); cursor: pointer;
+    font-family: inherit; font-size: .75rem; text-align: center; text-decoration: none;
+  }
+  .more-tile svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .more-tile svg.ic-gear { stroke-width: 1.7; }
+  .more-tile svg.ic-fine { stroke-width: 1.7; }
+  .more-tile .tile-mark { color: var(--accent); display: inline-flex; }
+  .more-tile .ic-art { width: 23px; height: 23px; }
+  .more-tile:hover { border-color: var(--accent); }
+  .more-tile:active { background: var(--btn-hover); }
 
   /* Print / save as PDF: a clean paper sheet, no chrome and no controls */
   @media print {
