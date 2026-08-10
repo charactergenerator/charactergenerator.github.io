@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>charactergenerator.github.io</title>
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=101">
-<link rel="manifest" href="manifest.webmanifest?v=101">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=103">
+<link rel="manifest" href="manifest.webmanifest?v=103">
 <meta name="theme-color" content="#0e0f11" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#f4efe6" media="(prefers-color-scheme: light)">
 <meta name="description" content="Build D&amp;D characters and play from a live sheet: levels 1-20, a searchable reference, and a bestiary. Works offline.">
@@ -13,12 +13,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Characters">
-<link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=101">
-<link rel="stylesheet" href="css/style.css?v=101">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=103">
+<link rel="stylesheet" href="css/style.css?v=103">
 </head>
 <body>
 <div class="bgimage" aria-hidden="true">
-  <img src="assets/dndlogo1.png?v=101" alt="">
+  <img src="assets/dndlogo1.png?v=103" alt="">
 </div>
 <div class="app">
 <nav class="tabs">
@@ -341,6 +341,10 @@
       <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
     </div>
     <div id="backupStatus" style="font-size:.85rem;margin-top:.5rem"></div>
+    <div id="storageStatus" style="font-size:.82rem;margin-top:.6rem;color:var(--muted)"></div>
+    <div id="rescueRow" style="margin-top:.6rem;display:none">
+      <button id="btnRescue" class="btn-danger" title="Download the unreadable saved data as a file">⬇ Download unreadable data</button>
+    </div>
   </section>
 
   <section class="panel">
@@ -446,9 +450,9 @@
 
 <div id="rollToast"><div class="what"></div><div class="total"></div><div class="detail"></div></div>
 
-<script src="js/data.js?v=101"></script>
-<script src="js/open5e.js?v=101"></script>
-<script src="js/app.js?v=101"></script>
+<script src="js/data.js?v=103"></script>
+<script src="js/open5e.js?v=103"></script>
+<script src="js/app.js?v=103"></script>
 
 <!-- Default Statcounter code for Character Generator
 https://charactergenerator.github.io/ -->
