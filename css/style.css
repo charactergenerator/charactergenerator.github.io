@@ -41,7 +41,10 @@
   }
   /* Dark mode goes modern: sans type, softer corners, green accent */
   body.dark { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
-  body.dark h1, body.dark .sheet h2 { letter-spacing: 0; }
+  /* h1 used to be a small-caps page heading and needed its tracking reset here.
+     It is the brand block now, so leaving it in only fought .brand's own
+     letter-spacing and made the phone's copy differ from the rail's. */
+  body.dark .sheet h2 { letter-spacing: 0; }
   body.dark .panel, body.dark .rule-card, body.dark .saved-card, body.dark .lvl-modal { border-radius: 12px; }
   body.dark .stat { border-color: var(--line); border-width: 1px; border-radius: 12px; }
   body.dark .stat.rollable:hover { border-color: var(--accent); }
@@ -72,7 +75,8 @@
   }
   .bgimage img { max-width: none; }
   body.dark .bgimage img { filter: invert(1); }
-  h1 { margin: 0 0 .25rem; color: var(--accent); font-variant: small-caps; letter-spacing: 1px; }
+  /* The only h1 on the page is the phone's brand block, styled by .brand */
+  h1 { margin: 0; font-size: 1rem; font-weight: normal; }
   .sub { color: var(--muted); margin-bottom: 1.25rem; font-size: .95rem; }
   /* Pages are built from modules rather than one page-wide box: the heading and
      any page-level actions sit on the background, and each block of content is
@@ -437,7 +441,9 @@
   .tabs button.active { background: var(--tab-bg); color: var(--ink); font-weight: 600; }
   .tabs button.active svg { stroke: var(--accent); }
   /* The sidebar brand replaces the page heading on larger screens */
-  h1, .sub { display: none; }
+  /* On a wide screen the rail carries the brand, so the page's copy stands down.
+     Scoped to h1.brand so it outweighs .brand's own display. */
+  h1.brand, .sub { display: none; }
   .tabpage { display: none; }
   .tabpage.active { display: block; }
   .maxw { max-width: 1400px; margin: 0 auto; }
@@ -653,14 +659,16 @@
        reserved for it has to grow too. A flat 5rem was shorter than the bar on
        any phone with an inset, which put the footer underneath it. */
     body { padding: .6rem; padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
-    h1 { display: flex; align-items: center; gap: .5rem; font-size: 1.3rem; margin-bottom: .75rem; }
-    h1 .brand-logo { width: 30px; height: 30px; }
+    /* The rail is the bottom bar down here and has no room for the brand, so
+       the page shows it instead: same mark, same wording, same weight, with the
+       rule running the full content width rather than the rail's. */
+    h1.brand { display: flex; padding: 0 0 .7rem; margin: 0 0 .9rem; }
     .app { display: block; }
     #savedCount { display: none; }
     .panel { padding: .85rem; }
     .tabpage > .panel { margin-bottom: .8rem; }
     .mod-grid { gap: .8rem; }
-    .brand { display: none; }
+    .tabs .brand { display: none; }
     .tabs {
       position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 90;
       flex-direction: row; width: auto; gap: 0; margin: 0;
