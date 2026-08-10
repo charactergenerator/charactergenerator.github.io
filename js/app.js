@@ -1227,8 +1227,12 @@ function setNavMode(m) {
 // so the full licence text stays one click from every page
 function showAttribution(e) {
   if (e) e.preventDefault();
-  const tab = document.querySelector('.tabs button[data-tab="settings"]');
-  if (tab) tab.click();
+  // On a phone that button opens the More sheet, so go to the page directly
+  if (onPhone()) openSettingsFromMore();
+  else {
+    const tab = document.querySelector('.tabs button[data-tab="settings"]');
+    if (tab) tab.click();
+  }
   const target = document.getElementById("attribution");
   if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1239,6 +1243,30 @@ function activateTab(b) {
   b.classList.add("active");
   document.getElementById("tab-"+b.dataset.tab).classList.add("active");
 }
+
+// ---------- MORE SHEET (phones) ----------
+// The bottom bar has five slots and the sidebar has more than five things in
+// it. On a phone the last slot opens this sheet instead of the Settings page,
+// so Settings and the outbound links all stay reachable.
+const onPhone = () => window.matchMedia("(max-width: 600px)").matches;
+const moreSheet = () => document.getElementById("moreSheet");
+function closeMoreSheet() {
+  moreSheet().classList.remove("open");
+  document.querySelector('.tabs button[data-tab="settings"]').classList.remove("sheet-open");
+}
+function toggleMoreSheet() {
+  const open = moreSheet().classList.toggle("open");
+  document.querySelector('.tabs button[data-tab="settings"]').classList.toggle("sheet-open", open);
+}
+function openSettingsFromMore() {
+  closeMoreSheet();
+  const b = document.querySelector('.tabs button[data-tab="settings"]');
+  activateTab(b);
+  window.scrollTo(0, 0);
+}
+// A sheet left open behind a widened window would sit over the page with no
+// way back to it, since the button that closes it is only on the bar
+window.addEventListener("resize", ()=>{ if (!onPhone()) closeMoreSheet(); });
 
 document.querySelectorAll(".tabs button").forEach(b=>{
   // Hovering only swaps the view; anything with side effects still waits for
@@ -1251,6 +1279,9 @@ document.querySelectorAll(".tabs button").forEach(b=>{
   });
   b.addEventListener("mouseleave", ()=>{ clearTimeout(hoverTimer); });
   b.addEventListener("click", ()=>{
+    // On a phone the Settings slot is the More slot, and opens the sheet
+    if (b.dataset.tab==="settings" && onPhone()) { toggleMoreSheet(); return; }
+    closeMoreSheet();
     activateTab(b);
     if (b.dataset.tab==="saved") renderSavedList();
     if (b.dataset.tab==="rules") { loadBestiary(); loadItems(); }
