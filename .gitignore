@@ -3,3 +3,10 @@ tools/raw/
 
 # Files on their way out, kept rather than deleted.
 Trash/
+
+# Others
+.DS_Store
+Thumbs.db
+
+.claude/
+claude.md
