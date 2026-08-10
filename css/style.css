@@ -743,12 +743,17 @@
 
   /* The More sheet: the phone's stand-in for the parts of the sidebar that the
      five-slot bottom bar has no room for. */
+  /* The sheet covers the whole viewport and the bar draws over it, rather than
+     the sheet stopping short at a guessed bar height. Stopping short left a
+     12px band of the page showing between the two, and any guess would go
+     wrong again the moment the bar's height or the home-indicator inset
+     changed. The padding keeps the tiles clear of the bar. */
   .more-sheet {
     display: none;
     position: fixed; inset: 0;
-    bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px));
     background: var(--bg); z-index: 80;
-    overflow-y: auto; padding: 1rem;
+    overflow-y: auto;
+    padding: 1rem 1rem calc(5.5rem + env(safe-area-inset-bottom, 0px));
   }
   .more-sheet.open { display: block; }
   .more-label {
