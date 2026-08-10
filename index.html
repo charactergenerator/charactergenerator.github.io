@@ -78,11 +78,13 @@
   </div>
 </div>
 <main class="content">
-<h1><span class="brand-logo" aria-hidden="true">
+<!-- The phone's copy of the rail's brand block. Same class, so the two cannot
+     drift apart; the media queries decide which one is on screen. -->
+<h1 class="brand"><span class="brand-logo" aria-hidden="true">
   <svg viewBox="0 0 40 40">
     <polygon points="20,2 35.6,11 35.6,29 20,38 4.4,29 4.4,11"
              fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/>
-  </svg></span>Character Generator</h1>
+  </svg></span><span class="brand-name">Character Generator</span></h1>
 <div class="sub">Based on the System Reference Document 5.2 (D&D 2024 rules, CC-BY-4.0). Levels 1-20. Data is saved in your browser.</div>
 
 <div class="tabpage maxw" id="tab-create">
