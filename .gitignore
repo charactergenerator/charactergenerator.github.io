@@ -8,5 +8,11 @@ Trash/
 .DS_Store
 Thumbs.db
 
+# Agent instructions and local agent state: useful on this machine, not part of
+# the site. No leading slash, so both rules apply at any depth rather than only
+# at the root. Both spellings are listed because ignore matching follows
+# core.ignorecase: it is case-insensitive here, but a clone on a case-sensitive
+# filesystem would only honour the spelling it is given.
 .claude/
+CLAUDE.md
 claude.md
