@@ -1262,6 +1262,7 @@ function openSettingsFromMore() {
   closeMoreSheet();
   const b = document.querySelector('.tabs button[data-tab="settings"]');
   activateTab(b);
+  renderStorageStatus();
   window.scrollTo(0, 0);
 }
 // A sheet left open behind a widened window would sit over the page with no
@@ -1284,6 +1285,7 @@ document.querySelectorAll(".tabs button").forEach(b=>{
     closeMoreSheet();
     activateTab(b);
     if (b.dataset.tab==="saved") renderSavedList();
+    if (b.dataset.tab==="settings") renderStorageStatus();
     if (b.dataset.tab==="rules") { loadBestiary(); loadItems(); }
     if (b.dataset.tab==="create") {
       // Leaving a saved-character view: give the creator a fresh start and drop
@@ -1301,9 +1303,114 @@ document.querySelectorAll(".tabs button").forEach(b=>{
 });
 
 // ---------- SAVE / LOAD (localStorage) ----------
-const STORE_KEY = "dnd-srd-characters";
-const loadStore = () => { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch(e) { return []; } };
-const saveStore = list => localStorage.setItem(STORE_KEY, JSON.stringify(list));
+// Characters live in localStorage, which is keyed by origin and survives
+// deploys, service worker updates, and cache purges: shipping new code does not
+// touch it. What can still lose the lot is a read that fails and then gets
+// written back over the good data, a write that hits the storage quota, or the
+// browser evicting the origin under pressure. All three are handled here.
+const STORE_KEY  = "dnd-srd-characters";
+const PREV_KEY   = "dnd-srd-characters-prev";      // the list as it was when this session opened
+const RESCUE_KEY = "dnd-srd-characters-unreadable"; // bytes we could not parse, kept verbatim
+
+let storeHealthy = true;   // false once a read comes back unreadable
+
+function loadStore() {
+  let raw = null;
+  try { raw = localStorage.getItem(STORE_KEY); }
+  catch(e) { storeHealthy = false; return []; }     // storage itself is unavailable
+  if (raw === null || raw === "") return [];        // genuinely nothing saved yet
+  try {
+    const list = JSON.parse(raw);
+    if (Array.isArray(list)) return list;
+  } catch(e) {}
+  // Unreadable. Never let this turn into an empty list that the next save
+  // writes over the top: keep the original bytes, and fall back to the copy
+  // taken when the session opened.
+  storeHealthy = false;
+  try { if (!localStorage.getItem(RESCUE_KEY)) localStorage.setItem(RESCUE_KEY, raw); } catch(e) {}
+  try {
+    const prev = JSON.parse(localStorage.getItem(PREV_KEY) || "null");
+    if (Array.isArray(prev)) return prev;
+  } catch(e) {}
+  return [];
+}
+
+function saveStore(list) {
+  const json = JSON.stringify(list);
+  try {
+    localStorage.setItem(STORE_KEY, json);
+    storeHealthy = true;
+    mirrorStore(json, list.length);
+    return true;
+  } catch(e) {
+    // Out of quota, or storage blocked. The list is still in memory, so say so
+    // rather than failing silently and letting the next reload lose the work.
+    storeHealthy = false;
+    storageTrouble(e);
+    return false;
+  }
+}
+
+// A second copy of the last value known to be good, which loadStore() falls
+// back to if the live one ever comes back unreadable. It is written from the
+// string that was just stored successfully, so it can never itself be broken.
+// The sheet writes through on nearly every tap, so this is throttled: a copy
+// at most fifteen seconds stale is worth having, a doubled write on every tap
+// is not, and it would only bring the quota closer.
+let lastMirrorAt = 0, lastMirrorCount = -1;
+function mirrorStore(json, count) {
+  const now = Date.now();
+  if (count === lastMirrorCount && now - lastMirrorAt < 15000) return;
+  try {
+    localStorage.setItem(PREV_KEY, json);
+    lastMirrorAt = now;
+    lastMirrorCount = count;
+  } catch(e) { /* the mirror is a nicety; never let it break a real save */ }
+}
+
+// And take one at startup, so a session that only reads still has a fallback.
+(function mirrorOnLoad() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const list = JSON.parse(raw);
+    if (Array.isArray(list)) mirrorStore(raw, list.length);
+  } catch(e) {}
+})();
+
+let toldAboutStorage = false;
+function storageTrouble(err) {
+  console.warn("localStorage write failed:", err && err.name);
+  if (toldAboutStorage) return;
+  toldAboutStorage = true;
+  const msg = "Your characters are still on screen. Back them up from Settings "
+            + "before closing this tab.";
+  const toast = document.getElementById("rollToast");
+  if (toast) {
+    toast.querySelector(".what").textContent = "This browser would not save";
+    const totalEl = toast.querySelector(".total");
+    totalEl.textContent = "!";
+    totalEl.className = "total fumble";
+    toast.querySelector(".detail").textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toast.classList.remove("show"), 12000);
+  }
+  const el = document.getElementById("backupStatus");
+  if (el) el.innerHTML = `<span style="color:var(--accent2)">This browser would not save. ${msg}</span>`;
+}
+
+// Browsers may evict an origin's storage when the device is short of space,
+// unless the origin is marked persistent. Ask for that once there is something
+// worth keeping, so the prompt some browsers show has an obvious reason.
+let askedToPersist = false;
+function requestPersistentStorage() {
+  if (askedToPersist || !navigator.storage || !navigator.storage.persist) return;
+  askedToPersist = true;
+  navigator.storage.persisted()
+    .then(already => already || navigator.storage.persist())
+    .catch(() => {});
+}
 
 function updateSavedCount() {
   const n = loadStore().length;
@@ -1354,6 +1461,8 @@ function saveCharacter() {
     list.push(snapshot);
   }
   saveStore(list);
+  // There is something worth keeping now, so ask the browser not to evict it
+  requestPersistentStorage();
   updateSavedCount();
   // Show the saved character on the Saved tab, leaving a fresh creator form
   const id = snapshot.id;
@@ -1563,12 +1672,19 @@ function backupCharacters() {
     count: list.length,
     characters: list
   };
+  // Date and time, biggest unit first, so a folder of backups sorts by name
+  // into the order they were taken and the newest is the one at the bottom.
+  // Seconds are in there because two backups a minute apart are common when
+  // you are about to try something risky, and the browser would otherwise
+  // quietly rename the second one to "(1)".
+  const name = `character-backup-${stamp.getFullYear()}-${pad(stamp.getMonth()+1)}-${pad(stamp.getDate())}`
+             + `-${pad(stamp.getHours())}${pad(stamp.getMinutes())}${pad(stamp.getSeconds())}.json`;
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"}));
-  a.download = `character-backup-${stamp.getFullYear()}-${pad(stamp.getMonth()+1)}-${pad(stamp.getDate())}.json`;
+  a.download = name;
   a.click();
   URL.revokeObjectURL(a.href);
-  backupStatus(`Backed up ${list.length} character${list.length===1?"":"s"} to ${a.download}.`, true);
+  backupStatus(`Backed up ${list.length} character${list.length===1?"":"s"} to ${a.download}, taken ${stamp.toLocaleString()}.`, true);
 }
 function restoreCharacters(input) {
   const file = input.files[0];
@@ -3002,6 +3118,51 @@ setNavMode(navMode);
 document.getElementById("btnBackup").addEventListener("click", backupCharacters);
 document.getElementById("btnRestore").addEventListener("click", ()=>document.getElementById("restoreFile").click());
 document.getElementById("restoreFile").addEventListener("change", e=>restoreCharacters(e.target));
+
+// Whether the browser has promised to keep this data is otherwise invisible,
+// and it is the difference between "saved" and "saved until the device is
+// short of space", so Settings says which it is.
+function renderStorageStatus() {
+  const el = document.getElementById("storageStatus");
+  if (!el) return;
+  const n = loadStore().length;
+  const bits = [`${n} character${n===1?"":"s"} in this browser's storage.`];
+  if (!storeHealthy) bits.push("The saved data could not be read; what you see came from this session's copy.");
+  el.textContent = bits.join(" ");
+
+  // the unreadable bytes, if there are any, are offered as a download
+  let rescue = null;
+  try { rescue = localStorage.getItem(RESCUE_KEY); } catch(e) {}
+  const row = document.getElementById("rescueRow");
+  if (row) row.style.display = rescue ? "block" : "none";
+
+  if (navigator.storage && navigator.storage.estimate) {
+    navigator.storage.estimate().then(est => {
+      const mb = est.usage != null ? (est.usage / 1048576).toFixed(1) + " MB used" : null;
+      if (mb) el.textContent += ` ${mb}.`;
+    }).catch(()=>{});
+  }
+  if (navigator.storage && navigator.storage.persisted) {
+    navigator.storage.persisted().then(p => {
+      el.textContent += p
+        ? " This browser has marked the data persistent, so it will not be cleared to free up space."
+        : " This browser has not marked the data persistent, so it could be cleared if the device runs short of space. Keep a backup.";
+    }).catch(()=>{});
+  }
+}
+
+function rescueUnreadable() {
+  let raw = null;
+  try { raw = localStorage.getItem(RESCUE_KEY); } catch(e) {}
+  if (!raw) return;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([raw], {type:"application/json"}));
+  a.download = "character-data-unreadable.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  backupStatus("Saved the unreadable data to a file. Nothing was changed here.", true);
+}
+document.getElementById("btnRescue").addEventListener("click", rescueUnreadable);
 
 // Restore the in-progress character from the last visit
 try {
