@@ -52,7 +52,7 @@ The sheet is a live play surface, not a printout:
 - ⧉ **Duplicate** a hero before a risky level-up, and 🔗 **share** one as a link that carries the whole character in the URL itself, so nothing is uploaded anywhere
 - ⬇️⬆️ **Backup & Restore** under Settings writes every character to one JSON file stamped with the date **and time**, so a folder of them sorts into the order they were taken, and reads them back on any machine. Restoring adds to what is already there rather than replacing it
 - 🔒 Characters are held in browser storage, which survives deploys, updates, and cache clears. The app keeps a second copy of the last good list and refuses to write an empty one over your data if a read ever comes back unreadable, says so plainly if the browser rejects a write, and asks the browser to mark the data persistent so it is not evicted when the device runs short of space. Settings shows where all that stands
-- 🌙 Modern dark mode by default, ☀️ parchment light mode in settings
+- 🌙 Dark mode by default, ☀️ light mode in settings. One design in two palettes: the type, weights, spacing and corners are identical and only the colours change, both built around the same green
 - 📱 Sidebar navigation on desktop and tablet, app-style bottom bar on phones. Settings sits in its own block at the foot of the sidebar. The sidebar switches on hover by default; Settings has a hover-or-click toggle
 - 📲 On a phone the bar's last stop is **More**, a sheet of tiles holding Settings and the sister tools, since five slots cannot hold everything the sidebar does
 - 🧱 Every page is built from modules: the heading sits on the page and each block of content is its own card, rather than one box wrapping the whole tab
