@@ -1286,7 +1286,7 @@ document.querySelectorAll(".tabs button").forEach(b=>{
     activateTab(b);
     if (b.dataset.tab==="saved") renderSavedList();
     if (b.dataset.tab==="settings") renderStorageStatus();
-    if (b.dataset.tab==="rules") { loadBestiary(); loadItems(); }
+    if (b.dataset.tab==="rules") { loadBestiary(); loadItems(); loadExtraSources(); }
     if (b.dataset.tab==="create") {
       // Leaving a saved-character view: give the creator a fresh start and drop
       // the old sheet, which would otherwise sit there looking live while its
@@ -1785,13 +1785,15 @@ function renderRules(q) {
     (bestiaryState === "loading" ? `<div class="rule-more">Loading 586 creature stat blocks in the background...</div>` :
      bestiaryState === "failed" ? `<div class="rule-more">Creature stat blocks could not be loaded. <span class="ref-link" onclick="bestiaryState='idle';loadBestiary()">Try again</span>.</div>` : "") +
     (itemsState === "loading" ? `<div class="rule-more">Loading the full equipment catalogue in the background...</div>` :
-     itemsState === "failed" ? `<div class="rule-more">The equipment catalogue could not be loaded. <span class="ref-link" onclick="itemsState='idle';loadItems()">Try again</span>.</div>` : "");
+     itemsState === "failed" ? `<div class="rule-more">The equipment catalogue could not be loaded. <span class="ref-link" onclick="itemsState='idle';loadItems()">Try again</span>.</div>` : "") +
+    (extraState === "loading" ? `<div class="rule-more">Loading the Deep Magic, Tome of Beasts, and Creature Codex entries in the background...</div>` :
+     extraState === "failed" ? `<div class="rule-more">The third-party sources could not be loaded. <span class="ref-link" onclick="extraState='idle';loadExtraSources()">Try again</span>.</div>` : "");
   document.getElementById("rulesResults").innerHTML = note + (hits.length
     ? (hits.length > RULE_CAP
         ? `<div class="rule-more">Showing the first ${RULE_CAP} of <b>${hits.length}</b> matches${ruleFilter==="Creature"?", lowest challenge first":""}. Keep typing, or narrow it with the chips above.</div>` : "") +
       shown.map(r=>{
         const src = r.src || SRC_SRD;
-        const open = r.creature ? ` class="rule-card clickable" onclick="creatureDetail('${escQ(r.creature)}')" title="Full stat block"` : ` class="rule-card"`;
+        const open = r.creature ? ` class="rule-card clickable" onclick="creatureDetail('${escQ(r.creature)}','${escQ(src)}')" title="Full stat block"` : ` class="rule-card"`;
         return `<div${open}><div class="cat">${r.c}<span class="src-tag${src===SRC_SRD?"":" alt"}">${src}</span></div>
           <h4>${allDice(hi(r.t))}</h4><p>${allDice(hi(r.d))}</p>
           ${r.creature?`<div style="font-size:.85rem;color:var(--accent)">Open the full stat block →</div>`:""}
@@ -1877,9 +1879,92 @@ function onItemsLoaded() {
   renderRules(rulesInput.value);
 }
 
-function creatureDetail(name) {
-  const c = A5E_CREATURES.find(x=>x.n===name);
-  if (!c) return;
+// Every creature set that has been loaded, newest first, so a name that appears
+// in more than one book resolves to the edition the card came from.
+// ---------- THIRD-PARTY SOURCES ----------
+// Deep Magic, the Tome of Beasts line, Creature Codex, Vault of Magic, and
+// Spells That Don't Suck. Another few thousand entries, so it rides along with
+// the bestiary and the item catalogue rather than loading with the app.
+let extraState = "idle";      // idle | loading | ready | failed
+
+function loadExtraSources() {
+  if (extraState !== "idle") return;
+  extraState = "loading";
+  renderRuleCats();
+  const s = document.createElement("script");
+  s.src = "js/open5e-extra.js?v=" + (document.querySelector('script[src*="app.js"]').src.split("v=")[1] || "1");
+  s.onerror = () => { extraState = "failed"; renderRuleCats(); renderRules(rulesInput.value); };
+  document.body.appendChild(s);
+}
+
+// open5e-extra.js calls this once it has defined its arrays
+function onExtraSourcesLoaded() {
+  extraState = "ready";
+
+  KP_SPELLS.forEach(s => {
+    const bits = [`Casting Time: ${s.t}.`, `Range: ${s.r}.`, `Components: ${s.c || "None"}.`, `Duration: ${s.u}.`];
+    if (s.conc) bits.push("Concentration.");
+    if (s.rit) bits.push("Ritual.");
+    RULES.push({
+      c: s.l === 0 ? "Spell · Cantrip" : "Spell · Level " + s.l,
+      t: s.n, src: KP_SOURCES[s.src],
+      d: `<i>${s.s}${s.l ? ", level " + s.l : " cantrip"}.</i> ${bits.join(" ")}<br><br>${s.d}` +
+         (s.hl ? `<br><br><b>At Higher Levels.</b> ${s.hl}` : "")
+    });
+  });
+
+  KP_CREATURES.forEach(c => {
+    const bits = [`Challenge ${crLabel(c.cr)}${c.xp?` (${c.xp.toLocaleString()} XP)`:""}.`,
+      `${c.sz} ${c.ty}.`, `AC ${c.ac}.`, `HP ${c.hp}${c.hd?` (${c.hd})`:""}.`, `Speed ${c.spd}.`];
+    if (c.se) bits.push(`Senses: ${c.se}.`);
+    if (c.ri) bits.push(c.ri + ".");
+    const names = [...(c.tr||[]).map(t=>t.n), ...(c.ac2||[]).map(t=>t.n)];
+    if (names.length) bits.push(`Traits and actions: ${names.join(", ")}.`);
+    RULES.push({ c:"Creature", t:c.n, src:KP_SOURCES[c.src], cr:c.cr, creature:c.n, d:bits.join(" ") });
+  });
+
+  // The item catalogue already carries most of Vault of Magic, so only the
+  // entries it does not have are added rather than a second card per item.
+  const have = new Set(RULES
+    .filter(r => /^(Equipment|Magic Item)/.test(r.c))
+    .map(r => r.t.toLowerCase()));
+  KP_MAGICITEMS.forEach(m => {
+    if (have.has(m.n.toLowerCase())) return;
+    have.add(m.n.toLowerCase());
+    const head = [m.r, m.a].filter(Boolean).join(", ");
+    RULES.push({
+      c: "Magic Item" + (m.c ? " · " + m.c : ""),
+      t: m.n, src: KP_SOURCES[m.src],
+      d: (head ? head.charAt(0).toUpperCase() + head.slice(1) + ". " : "") + m.d
+    });
+  });
+
+  renderRuleCats();
+  renderRules(rulesInput.value);
+}
+
+function allCreatureSets() {
+  const sets = [];
+  if (typeof A5E_CREATURES !== "undefined") sets.push({ rows: A5E_CREATURES, src: "Monstrous Menagerie" });
+  if (typeof KP_CREATURES !== "undefined") sets.push({ rows: KP_CREATURES, src: null });
+  return sets;
+}
+function findCreature(name, src) {
+  for (const set of allCreatureSets()) {
+    const hit = set.rows.find(x => x.n === name && (!src || (set.src || KP_SOURCES[x.src]) === src));
+    if (hit) return { c: hit, src: set.src || KP_SOURCES[hit.src] };
+  }
+  for (const set of allCreatureSets()) {
+    const hit = set.rows.find(x => x.n === name);
+    if (hit) return { c: hit, src: set.src || KP_SOURCES[hit.src] };
+  }
+  return null;
+}
+
+function creatureDetail(name, src) {
+  const found = findCreature(name, src);
+  if (!found) return;
+  const c = found.c;
   const abs = ["STR","DEX","CON","INT","WIS","CHA"];
   const line = (k,v) => v ? `<div><b>${k}</b> ${v}</div>` : "";
   document.getElementById("refModal").innerHTML = `
@@ -1908,7 +1993,7 @@ function creatureDetail(name) {
       ${c.tr.map(t=>`<div style="margin-bottom:.4rem"><b>${escHtml(t.n)}.</b> ${allDice(t.d)}</div>`).join("")}</div>`:""}
     ${(c.ac2||[]).length?`<div class="lvl-step"><div class="k">Actions</div>
       ${c.ac2.map(t=>`<div style="margin-bottom:.4rem"><b>${escHtml(t.n)}.</b> ${allDice(t.d)}</div>`).join("")}</div>`:""}
-    <div style="font-size:.8rem;color:var(--muted)">Monstrous Menagerie &copy; EN Publishing, used under the Open Game License v1.0a. See Settings for the full notice.</div>
+    <div style="font-size:.8rem;color:var(--muted)">${escHtml(found.src)}, used under the Open Game License v1.0a. See Settings for the full notice.</div>
     <div class="lvl-actions"><button onclick="refClose()">Close</button></div>`;
   document.getElementById("refOverlay").classList.add("open");
 }
