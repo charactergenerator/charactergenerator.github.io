@@ -15,7 +15,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/favicon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="assets/favicon-512.png">
-<link rel="manifest" href="manifest.webmanifest?v=110">
+<link rel="manifest" href="manifest.webmanifest?v=111">
 <meta name="theme-color" content="#0e0f11" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#eef4ef" media="(prefers-color-scheme: light)">
 <meta name="description" content="Build D&amp;D characters and play from a live sheet: levels 1-20, a searchable reference, and a bestiary. Works offline.">
@@ -24,11 +24,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Characters">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
-<link rel="stylesheet" href="css/style.css?v=110">
+<link rel="stylesheet" href="css/style.css?v=111">
 </head>
 <body>
 <div class="bgimage" aria-hidden="true">
-  <img src="assets/dndlogo1.png?v=110" alt="">
+  <img src="assets/dndlogo1.png?v=111" alt="">
 </div>
 <div class="app">
 <nav class="tabs">
@@ -54,6 +54,8 @@
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5"/></svg><span class="tab-label">Characters <span id="savedCount"></span></span></button>
     <button data-tab="rules" title="Search spells, gear, features, and rules">
       <svg viewBox="0 0 24 24"><path d="M4 5h6a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4z"/><path d="M20 5h-6a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h6z"/></svg><span class="tab-label">Reference</span></button>
+    <button data-tab="stats" title="Everything you have rolled, played, and collected">
+      <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="tab-label">Stats</span></button>
 
     <!-- Sister tools, each carrying that site's own mark. DM Screen's is its
          sidebar path verbatim. Auto Roll Tables' is its actual logo file,
@@ -81,6 +83,8 @@
   <div class="more-grid">
     <button class="more-tile" type="button" onclick="openSettingsFromMore()">
       <span class="tile-mark"><svg class="ic-gear" viewBox="0 0 24 24"><path d="M12 15 a3 3 0 1 0 0-6 a3 3 0 0 0 0 6 M19.4 15 a1.65 1.65 0 0 0 .33 1.82 l.06.06 a2 2 0 1 1-2.83 2.83 l-.06-.06 a1.65 1.65 0 0 0-1.82-.33 a1.65 1.65 0 0 0-1 1.51 V21 a2 2 0 1 1-4 0 v-.09 A1.65 1.65 0 0 0 9 19.4 a1.65 1.65 0 0 0-1.82.33 l-.06.06 a2 2 0 1 1-2.83-2.83 l.06-.06 a1.65 1.65 0 0 0 .33-1.82 a1.65 1.65 0 0 0-1.51-1 H3 a2 2 0 1 1 0-4 h.09 A1.65 1.65 0 0 0 4.6 9 a1.65 1.65 0 0 0-.33-1.82 l-.06-.06 a2 2 0 1 1 2.83-2.83 l.06.06 a1.65 1.65 0 0 0 1.82.33 H9 a1.65 1.65 0 0 0 1-1.51 V3 a2 2 0 1 1 4 0 v.09 a1.65 1.65 0 0 0 1 1.51 a1.65 1.65 0 0 0 1.82-.33 l.06-.06 a2 2 0 1 1 2.83 2.83 l-.06.06 a1.65 1.65 0 0 0-.33 1.82 V9 a1.65 1.65 0 0 0 1.51 1 H21 a2 2 0 1 1 0 4 h-.09 a1.65 1.65 0 0 0-1.51 1 Z"/></svg></span><span>Settings</span></button>
+    <button class="more-tile" type="button" onclick="openStatsFromMore()">
+      <span class="tile-mark"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span>Stats</span></button>
     <a class="more-tile" href="https://dmscreen.github.io/" target="_blank" rel="noopener">
       <span class="tile-mark"><svg class="ic-fine" viewBox="0 0 24 24"><path d="M12 2 L21 7 L21 17 L12 22 L3 17 L3 7 Z"/><path d="M12 2 L12 22 M3 7 L21 17 M21 7 L3 17"/></svg></span><span>DM Screen</span></a>
     <a class="more-tile" href="https://autorolltables.github.io/" target="_blank" rel="noopener">
@@ -309,6 +313,15 @@
   <div id="rulesResults"></div>
 </div>
 
+<div class="tabpage maxw" id="tab-stats">
+  <div class="page-title">
+    <h2>Stats</h2>
+    <div class="page-sub">Everything you have rolled, survived, and collected, counted in this browser</div>
+  </div>
+  <!-- drawn by renderStats() whenever the tab is opened -->
+  <div id="statsBody"></div>
+</div>
+
 <div class="tabpage maxw" id="tab-settings">
   <div class="page-title">
     <h2>Settings</h2>
@@ -485,9 +498,9 @@
 
 <div id="rollToast"><div class="what"></div><div class="total"></div><div class="detail"></div></div>
 
-<script src="js/data.js?v=110"></script>
-<script src="js/open5e.js?v=110"></script>
-<script src="js/app.js?v=110"></script>
+<script src="js/data.js?v=111"></script>
+<script src="js/open5e.js?v=111"></script>
+<script src="js/app.js?v=111"></script>
 
 <!-- Default Statcounter code for Character Generator
 https://charactergenerator.github.io/ -->

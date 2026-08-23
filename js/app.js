@@ -190,6 +190,7 @@ function toggleCondition(name) {
   if (i >= 0) { list.splice(i,1); logEvent("status", `No longer <b>${name}</b>`); }
   else {
     list.push(name);
+    tally(STATS.conds, name);
     logEvent("status", `Now <b>${name}</b>${CONDITIONS[name].note?` · ${CONDITIONS[name].note}`:""}`);
     if (CONDITIONS[name].incap && state.conc) dropConc(`${name.toLowerCase()}`);
   }
@@ -253,6 +254,9 @@ function purseInCp() {
   const p = purse();
   return COINS.reduce((s,c)=>s + p[c.k]*c.cp, 0);
 }
+// Coin values in copper, so a mixed purse can be totalled and gains and spends
+// can be compared across coin types
+const COIN_CP = Object.fromEntries(COINS.map(c=>[c.k, c.cp]));
 function changeCoin(k, n) {
   const p = purse();
   if (n < 0 && p[k] + n < 0) n = -p[k];      // never go negative in a single coin type
@@ -260,6 +264,8 @@ function changeCoin(k, n) {
   pushUndo(`the ${Math.abs(n)} ${k.toUpperCase()} change`);
   state.coins = {...(state.coins||{})};
   state.coins[k] = (state.coins[k]||0) + n;
+  if (n > 0) STATS.coins.gained += n * COIN_CP[k]; else STATS.coins.spent += -n * COIN_CP[k];
+  saveStats();
   logEvent("gear", `${n>0?"Gained":"Spent"} <b>${Math.abs(n)} ${k.toUpperCase()}</b> · purse now ${COINS.filter(c=>purse()[c.k]).map(c=>`${purse()[c.k]} ${c.k.toUpperCase()}`).join(", ")||"empty"}`);
   renderSheet(); persistLoaded();
 }
@@ -300,6 +306,7 @@ function addXp() {
   state.xp = String(before + n);
   const f = document.getElementById("xpField");
   if (f) f.value = state.xp;
+  STATS.xp += n;
   logEvent("xp", `<b>+${n} XP</b> · ${before} → ${state.xp}${levelForXp(xpNum())>state.level?` · enough for level ${levelForXp(xpNum())}!`:""}`);
   renderSheet(); persistLoaded();
 }
@@ -1265,6 +1272,14 @@ function openSettingsFromMore() {
   renderStorageStatus();
   window.scrollTo(0, 0);
 }
+// Stats is a sidebar tab on a desktop. The bottom bar has five slots and they
+// are already spoken for, so on a phone it is reached from this sheet instead.
+function openStatsFromMore() {
+  closeMoreSheet();
+  activateTab(document.querySelector('.tabs button[data-tab="stats"]'));
+  renderStats();
+  window.scrollTo(0, 0);
+}
 // A sheet left open behind a widened window would sit over the page with no
 // way back to it, since the button that closes it is only on the bar
 window.addEventListener("resize", ()=>{ if (!onPhone()) closeMoreSheet(); });
@@ -1287,6 +1302,7 @@ document.querySelectorAll(".tabs button").forEach(b=>{
     if (b.dataset.tab==="saved") renderSavedList();
     if (b.dataset.tab==="settings") renderStorageStatus();
     if (b.dataset.tab==="rules") { loadBestiary(); loadItems(); loadExtraSources(); }
+    if (b.dataset.tab==="stats") renderStats();
     if (b.dataset.tab==="create") {
       // Leaving a saved-character view: give the creator a fresh start and drop
       // the old sheet, which would otherwise sit there looking live while its
@@ -1670,7 +1686,11 @@ function backupCharacters() {
     format: BACKUP_FORMAT, version: 1,
     savedAt: stamp.toISOString(),
     count: list.length,
-    characters: list
+    characters: list,
+    // The play tallies ride along so that moving to a new browser carries the
+    // dice history with the characters. Restoring only adopts them into a
+    // browser that has none of its own; see restoreCharacters().
+    stats: STATS
   };
   // Date and time, biggest unit first, so a folder of backups sorts by name
   // into the order they were taken and the newest is the one at the bottom.
@@ -1709,9 +1729,19 @@ function restoreCharacters(input) {
         added++;
       });
       saveStore(list);
+      // Adopt the backup's tallies only into a browser that has never logged a
+      // day of its own. Adding them to an existing tally would double every
+      // number the second time the same file was restored, and there is no way
+      // to tell that from a genuine second computer.
+      let statsToo = false;
+      if (raw && raw.stats && !Object.keys(STATS.days).length) {
+        STATS = mergeStats(blankStats(), raw.stats);
+        saveStats(); flushStats();   // mark dirty, then write it now rather than in a second
+        statsToo = true;
+      }
       renderSavedList(); updateSavedCount();
       backupStatus(added
-        ? `Restored ${added} character${added===1?"":"s"}${skipped?`, skipped ${skipped} unreadable entr${skipped===1?"y":"ies"}`:""}. You now have ${list.length}.`
+        ? `Restored ${added} character${added===1?"":"s"}${skipped?`, skipped ${skipped} unreadable entr${skipped===1?"y":"ies"}`:""}. You now have ${list.length}.${statsToo?" The Stats page was restored with them.":""}`
         : "That file held no readable characters.", !!added);
     } catch(e) {
       backupStatus("Could not read that file. It should be a backup created by this app.", false);
@@ -1833,6 +1863,7 @@ function onBestiaryLoaded() {
   });
   renderRuleCats();
   renderRules(rulesInput.value);
+  refreshStatsIfOpen();
 }
 
 // ---------- EXTENDED EQUIPMENT ----------
@@ -1877,6 +1908,7 @@ function onItemsLoaded() {
   });
   renderRuleCats();
   renderRules(rulesInput.value);
+  refreshStatsIfOpen();
 }
 
 // Every creature set that has been loaded, newest first, so a name that appears
@@ -1941,6 +1973,7 @@ function onExtraSourcesLoaded() {
 
   renderRuleCats();
   renderRules(rulesInput.value);
+  refreshStatsIfOpen();
 }
 
 function allCreatureSets() {
@@ -1998,6 +2031,88 @@ function creatureDetail(name, src) {
   document.getElementById("refOverlay").classList.add("open");
 }
 
+// ---------- PLAY STATS ----------
+// A lifetime tally of what happens at the table. The history log below answers
+// "what just happened"; it is capped at 200 entries and written as HTML, so it
+// cannot answer "how many natural 20s have I ever rolled". These counters can.
+// They only go up, they are a few kilobytes, and they are written from the same
+// places the log already fires from, so the two cannot drift apart.
+const STATS_KEY = "dnd-srd-stats";
+const blankStats = () => ({
+  v: 1,
+  firstAt: null, lastAt: null,
+  days: {},                                  // YYYY-MM-DD -> events that day
+  d20: {}, adv: 0, dis: 0,                   // natural d20 face -> times rolled
+  dice: {},                                  // sides -> { n, sum } from the dice tray
+  init: { n:0, sum:0, best:null, worst:null },
+  hp: { damage:0, healed:0, temp:0, biggestHit:0, biggestHeal:0, downed:0, revived:0 },
+  death: { rolls:0, pass:0, fail:0, nat20:0, nat1:0, died:0 },
+  rest: { short:0, long:0, hitDice:0, interrupted:0 },
+  cast: { total:0, cantrip:0, slots:0, by:{} },
+  lvl: { ups:0, by:{} },
+  xp: 0,
+  coins: { gained:0, spent:0 },
+  gear: { picked:0, dropped:0, attuned:0, by:{} },
+  conds: {},
+  events: {}
+});
+// Merge rather than assign, so a tally written by an older build keeps its
+// numbers when a later one adds a counter next to them.
+function mergeStats(base, raw) {
+  Object.keys(raw || {}).forEach(k => {
+    const b = base[k], r = raw[k];
+    if (b && r && typeof b === "object" && typeof r === "object" &&
+        !Array.isArray(b) && !Array.isArray(r)) mergeStats(b, r);
+    else if (r !== undefined && r !== null) base[k] = r;
+  });
+  return base;
+}
+let STATS = blankStats();
+try { STATS = mergeStats(blankStats(), JSON.parse(localStorage.getItem(STATS_KEY))); } catch(e) {}
+
+// Rolling a handful of dice fires several of these in a row, so the write is
+// batched. Anything still pending is flushed when the page goes away, which on
+// a phone is the only reliable moment: a backgrounded tab is often killed
+// outright without ever seeing unload.
+let statsDirty = false, statsTimer = null;
+function saveStats() {
+  statsDirty = true;
+  if (!statsTimer) statsTimer = setTimeout(flushStats, 1500);
+}
+function flushStats() {
+  clearTimeout(statsTimer); statsTimer = null;
+  if (!statsDirty) return;
+  statsDirty = false;
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(STATS)); } catch(e) { /* a full quota must not break play */ }
+}
+window.addEventListener("pagehide", flushStats);
+document.addEventListener("visibilitychange", ()=>{ if (document.visibilityState === "hidden") flushStats(); });
+
+const dayKey = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+function statDay() {
+  const now = new Date();
+  if (!STATS.firstAt) STATS.firstAt = now.toISOString();
+  STATS.lastAt = now.toISOString();
+  const k = dayKey(now);
+  STATS.days[k] = (STATS.days[k] || 0) + 1;
+  saveStats();
+}
+// A name tally that cannot grow without bound: a few hundred distinct spells or
+// items is already more than the page shows, so the long tail is dropped.
+function tally(obj, key, n) {
+  if (!key) return;
+  obj[key] = (obj[key] || 0) + (n == null ? 1 : n);
+  const keys = Object.keys(obj);
+  if (keys.length > 300) keys.sort((a,b)=>obj[b]-obj[a]).slice(200).forEach(k=>delete obj[k]);
+  saveStats();
+}
+function noteD20(keep, adv, dis) {
+  STATS.d20[keep] = (STATS.d20[keep] || 0) + 1;
+  if (adv) STATS.adv++;
+  if (dis) STATS.dis++;
+  saveStats();
+}
+
 // ---------- DICE ROLLING & HP ----------
 let toastTimer = null;
 
@@ -2007,6 +2122,8 @@ try { histLog = JSON.parse(localStorage.getItem("dnd-srd-history")) || []; } cat
 let showRollLog = false;
 const HIST_ICONS = { roll:"🎲", level:"⬆️", edit:"✏️", rest:"⛺", longrest:"🌙", status:"💀", heal:"❤️", cast:"✨", resource:"🔆", gear:"🎒", xp:"✳️" };
 function logEvent(type, text) {
+  tally(STATS.events, type);
+  statDay();
   histLog.unshift({type, text, who: state.name || "", at: new Date().toLocaleString()});
   if (histLog.length > 200) histLog.length = 200;
   try { localStorage.setItem("dnd-srd-history", JSON.stringify(histLog)); } catch(e) {}
@@ -2041,9 +2158,13 @@ function d20Roll(kind, ability) {
   } else if (adv && c.adv) why.push(c.adv);
   else if (dis && c.dis) why.push(c.dis);
   const a = 1 + Math.floor(Math.random()*20);
-  if (!adv && !dis) return { v:a, pair:null, mode: why.length ? why[0] : null, flat:!!why.length };
+  if (!adv && !dis) {
+    noteD20(a, false, false);
+    return { v:a, pair:null, mode: why.length ? why[0] : null, flat:!!why.length };
+  }
   const b = 1 + Math.floor(Math.random()*20);
   const keep = adv ? Math.max(a,b) : Math.min(a,b);
+  noteD20(keep, adv, dis);
   const drop = adv ? Math.min(a,b) : Math.max(a,b);
   const label = (adv ? "Advantage" : "Disadvantage") + (why.length ? ` · ${why[0]}` : "");
   return { v:keep, pair:[keep,drop], mode:label };
@@ -2059,6 +2180,13 @@ function rollD20(what, modifier, kind, ability) {
   const r = d20Roll(kind, ability);
   const d = r.v;
   const total = d + modifier;
+  if (/^Initiative/.test(what)) {
+    const i = STATS.init;
+    i.n++; i.sum += total;
+    i.best = i.best == null ? total : Math.max(i.best, total);
+    i.worst = i.worst == null ? total : Math.min(i.worst, total);
+    saveStats();
+  }
   logRoll(what + (r.mode?` (${r.mode})`:""), d20Detail(r, modifier), total);
   const toast = document.getElementById("rollToast");
   toast.querySelector(".what").textContent = what;
@@ -2079,6 +2207,9 @@ function rollD20(what, modifier, kind, ability) {
 
 function rollDie(sides) {
   const d = 1 + Math.floor(Math.random()*sides);
+  const t = STATS.dice[sides] || (STATS.dice[sides] = { n:0, sum:0 });
+  t.n++; t.sum += d;
+  saveStats();
   logRoll("d"+sides, `d${sides} (${d})`, d);
   const toast = document.getElementById("rollToast");
   toast.querySelector(".what").innerHTML = dieIcon(sides);
@@ -2110,12 +2241,24 @@ function changeHp(delta) {
   }
   const before = state.curHp;
   state.curHp = Math.max(0, Math.min(state.maxHp, state.curHp + delta));
+  if (damageTaken > 0) {
+    STATS.hp.damage += damageTaken;
+    STATS.hp.biggestHit = Math.max(STATS.hp.biggestHit, damageTaken);
+  } else if (delta > 0) {
+    // credit only the healing that landed: topping up at full HP heals nothing
+    const got = state.curHp - before;
+    STATS.hp.healed += got;
+    STATS.hp.biggestHeal = Math.max(STATS.hp.biggestHeal, got);
+  }
+  saveStats();
   if (before > 0 && state.curHp === 0) {
+    STATS.hp.downed++;
     state.stable = false;
     logEvent("status", `<b>Down!</b> Dropped to 0 HP`);
     if (state.conc) dropConc("knocked unconscious");
   }
   if (state.curHp > 0 && before === 0) {
+    STATS.hp.revived++;
     state.deathS = 0; state.deathF = 0; state.stable = false;
     logEvent("heal", `<b>Back on their feet</b> with ${state.curHp} HP`);
   }
@@ -2127,6 +2270,7 @@ function changeHp(delta) {
 
 function changeTempHp(delta) {
   pushUndo("the temporary HP change");
+  if (delta > 0) { STATS.hp.temp += delta; saveStats(); }
   state.tempHp = Math.max(0, (state.tempHp||0) + delta);
   renderSheet();
   persistLoaded();
@@ -2427,6 +2571,8 @@ function lvlConfirm() {
     if (dropped.length) learned.push(...dropped.map(n=>`(swapped out ${n})`));
     renderSpellChoices();
   }
+  STATS.lvl.ups++;
+  tally(STATS.lvl.by, state.cls);
   logEvent("level", `<b>Level ${state.level}</b> ${state.cls}: +${gain} HP die (${mode==="roll"?"rolled":"average"})${subText?` · subclass: ${subText}`:""}${asiText?` · ASI: ${asiText}`:""}${featText?` · feat: ${featText}`:""}${newFeats?` · gained: ${newFeats}`:""}${subFeats?` · ${state.subclass}: ${subFeats}`:""}${learned.length?` · learned: ${learned.join(", ")}`:""}`);
   lvlCancel();
   renderSheet();
@@ -2449,19 +2595,23 @@ document.addEventListener("keydown", e=>{ if (e.key==="Escape" && pendingLvl) lv
 // ---------- EQUIPMENT ----------
 // What the character is actually carrying: starting gear minus anything dropped,
 // plus anything picked up. Attacks and spellcasting both read from this.
-function currentEquipment() {
-  const c = state.cls ? CLASSES[state.cls] : null;
-  const bg = state.background ? BACKGROUNDS[state.background] : null;
+function currentEquipment() { return equipmentOf(state); }
+// The pack as it stands for any character record, saved or in play: what the
+// class and background started them with, less anything dropped, plus anything
+// picked up since.
+function equipmentOf(who) {
+  const c = who.cls ? CLASSES[who.cls] : null;
+  const bg = who.background ? BACKGROUNDS[who.background] : null;
   // Starting coins are counted in the purse instead of sitting in the pack
   const base = [...(c?c.equipment:[]), ...(bg?bg.equipment:[])].filter(e=>!COIN_RE.test(e.trim()));
-  const pending = [...(state.dropped||[])];
+  const pending = [...(who.dropped||[])];
   const kept = [];
   base.forEach(item=>{
     const i = pending.indexOf(item);
     if (i >= 0) pending.splice(i,1);   // one entry dropped removes one copy
     else kept.push(item);
   });
-  return [...kept, ...(state.gear||[])];
+  return [...kept, ...(who.gear||[])];
 }
 // Identical entries collapse into one row with a count, so twenty arrows are
 // one line rather than twenty
@@ -2491,6 +2641,7 @@ function toggleAttune(name) {
     }
     pushUndo(`attuning to ${name}`);
     list.push(name);
+    STATS.gear.attuned++;
     logEvent("gear", `Attuned to <b>${name}</b> (${list.length} of ${ATTUNEMENT_MAX})`);
   }
   renderSheet(); persistLoaded();
@@ -2512,6 +2663,8 @@ function dropItem(name) {
     state.attuned = state.attuned.filter(n=>n!==name);
     unattuned = true;
   }
+  STATS.gear.dropped++;
+  saveStats();
   logEvent("gear", `Dropped <b>${name}</b>${FOCUS_RE.test(name)?" · spellcasting focus lost":""}${unattuned?" · attunement ended":""}`);
   renderSheet(); persistLoaded();
 }
@@ -2570,6 +2723,8 @@ function renderGearModal() {
 function addGear(name, quiet) {
   pushUndo(`picking up ${name}`);
   state.gear = [...(state.gear||[]), name];
+  STATS.gear.picked++;
+  tally(STATS.gear.by, name);
   logEvent("gear", `Picked up <b>${name}</b>${WEAPONS[name]?" (added to Attacks)":""}${needsAttunement(name)?" · requires Attunement":""}`);
   renderSheet(); persistLoaded();
   if (!quiet) gearClose();
@@ -2764,6 +2919,7 @@ function restCancel() {
 }
 
 function restInterrupted(kind) {
+  STATS.rest.interrupted++;
   logEvent("rest", `<b>${kind} interrupted</b>: no benefits gained`);
   restCancel();
 }
@@ -2778,6 +2934,7 @@ function restFinish() {
   if (state.cls==="Warlock") { state.slotsUsed = {}; extra = ", Pact slots restored"; }
   const back = refillResources("short");
   if (back.length) extra += `, restored ${back.join(", ")}`;
+  STATS.rest.short++; STATS.rest.hitDice += spent;
   logEvent("rest", `<b>Short Rest</b>: spent ${spent} Hit ${spent===1?"Die":"Dice"}, healed ${healed} HP${extra}`);
   restCancel();
   renderSheet(); persistLoaded();
@@ -2846,6 +3003,7 @@ function longRestConfirm() {
     if (added.length||removed.length)
       spellNote += `, prepared ${added.join(", ")||"no new spells"}${removed.length?` (dropped ${removed.join(", ")})`:""}`;
   }
+  STATS.rest.long++;
   logEvent("longrest", `<b>Long Rest</b>: HP fully restored${healed?` (+${healed})`:""}, spell slots refreshed${hdBack?`, recovered ${hdBack} Hit ${hdBack===1?"Die":"Dice"}`:""}${spellNote}`);
   pendingLR = null;
   restCancel();
@@ -2920,12 +3078,17 @@ function rollDeathSave() {
   const r = d20Roll("sav");
   const d = r.v;
   logRoll(`Death Save${r.mode?` (${r.mode})`:""}`, d20Detail(r, 0), d);
+  STATS.death.rolls++;
+  if (d === 20) STATS.death.nat20++;
+  else if (d === 1) STATS.death.nat1++;
+  if (d >= 10) STATS.death.pass++; else STATS.death.fail++;
+  saveStats();
   if (d === 20) { revive(1, "a natural 20 on the Death Save"); return; }
   if (d === 1) state.deathF = Math.min(3, state.deathF + 2);
   else if (d >= 10) state.deathS = Math.min(3, state.deathS + 1);
   else state.deathF = Math.min(3, state.deathF + 1);
   if (state.deathS >= 3) { state.stable = true; logEvent("status", `<b>Stabilized</b>: three Death Save successes`); }
-  if (state.deathF >= 3) logEvent("status", `<b>Died</b>: three Death Save failures`);
+  if (state.deathF >= 3) { STATS.death.died++; logEvent("status", `<b>Died</b>: three Death Save failures`); }
   renderSheet(); persistLoaded();
 }
 
@@ -2941,7 +3104,7 @@ function downDamage(n) {
   const wasDying = state.deathF < 3;
   state.deathF = Math.min(3, state.deathF + n);
   state.stable = false;
-  if (wasDying && state.deathF >= 3) logEvent("status", `<b>Died</b>: struck down while dying`);
+  if (wasDying && state.deathF >= 3) { STATS.death.died++; logEvent("status", `<b>Died</b>: struck down while dying`); }
   renderSheet(); persistLoaded();
 }
 
@@ -3174,6 +3337,9 @@ function castSpell(name, lv) {
   const spell = SPELLS.find(s=>s.n===name);
   // the duration field is authoritative; some summaries word it loosely
   const needsConc = spell && /concentration/i.test(spellMeta(spell).dur);
+  STATS.cast.total++;
+  if (lv > 0) STATS.cast.slots++; else STATS.cast.cantrip++;
+  tally(STATS.cast.by, name);
   logEvent("cast", `Cast <b>${name}</b>${lv?` using a Level ${lv} slot`:" (cantrip)"}${needsConc?" · concentrating":""}`);
   if (needsConc) startConcentration(name);
   spellClose();
@@ -3255,6 +3421,333 @@ try {
   if (cur && (cur.cls || cur.species || cur.name)) applyCharacter(cur);
 } catch(e) {}
 
+// ---------- STATS PAGE ----------
+// Two different kinds of number live on this page. The play tallies come from
+// STATS, which counts events as they happen and never forgets them. The
+// collection figures are counted fresh from the saved characters every time the
+// page is drawn, because those change when a character is edited or deleted and
+// a running total would slowly go wrong.
+const fmtN = n => (n == null ? "0" : Math.round(n).toLocaleString());
+const stBig = (v, k, sub) =>
+  `<div class="st-big"><div class="v">${v}</div><div class="k">${k}</div>${sub?`<div class="s">${sub}</div>`:""}</div>`;
+const stRow = (k, v, sub) =>
+  `<div class="st-row"><span>${k}${sub?`<small>${sub}</small>`:""}</span><b>${v}</b></div>`;
+function stBars(entries, opts) {
+  const o = opts || {};
+  if (!entries.length) return `<div class="st-empty">${o.empty || "Nothing yet."}</div>`;
+  const top = entries.slice(0, o.max || 6);
+  const peak = Math.max(...top.map(e=>e[1]), 1);
+  return top.map(([name, n]) =>
+    `<div class="st-bar"><div class="st-bar-l"><span>${escHtml(name)}</span><b>${fmtN(n)}${o.unit||""}</b></div>
+     <div class="st-bar-t"><i style="width:${Math.max(4, Math.round(n/peak*100))}%"></i></div></div>`).join("");
+}
+// A tally object as a list sorted by count, biggest first
+const stSorted = obj => Object.entries(obj || {}).sort((a,b)=> b[1]-a[1] || a[0].localeCompare(b[0]));
+
+function stDate(iso) {
+  if (!iso) return "never";
+  try { return new Date(iso).toLocaleDateString(undefined, {year:"numeric", month:"short", day:"numeric"}); }
+  catch(e) { return "unknown"; }
+}
+// Consecutive days ending today, or ending yesterday so that a streak is not
+// declared broken before the day it would actually break on, plus the longest
+// run there has ever been.
+function stStreaks(days) {
+  const keys = Object.keys(days).sort();
+  if (!keys.length) return { current:0, longest:0, active:0 };
+  const dayNo = k => Math.round(Date.parse(k + "T00:00:00") / 86400000);
+  let longest = 1, run = 1;
+  for (let i = 1; i < keys.length; i++) {
+    run = dayNo(keys[i]) - dayNo(keys[i-1]) === 1 ? run + 1 : 1;
+    longest = Math.max(longest, run);
+  }
+  const today = dayNo(dayKey(new Date()));
+  const last = dayNo(keys[keys.length-1]);
+  let current = 0;
+  if (today - last <= 1) {
+    current = 1;
+    for (let i = keys.length - 1; i > 0; i--) {
+      if (dayNo(keys[i]) - dayNo(keys[i-1]) !== 1) break;
+      current++;
+    }
+  }
+  return { current, longest, active: keys.length };
+}
+
+// The d20 faces, one bar each. Every d20 the app rolls goes through d20Roll(),
+// so this covers attacks, saves, checks, death saves and the loose dice.
+function stD20Chart() {
+  const counts = [];
+  for (let f = 1; f <= 20; f++) counts.push(STATS.d20[f] || 0);
+  const peak = Math.max(...counts, 1);
+  return `<div class="st-hist">${counts.map((n, i) => {
+    const face = i + 1;
+    const cls = face === 20 ? " crit" : face === 1 ? " fumble" : "";
+    return `<div class="st-hist-c${cls}" title="${face}: rolled ${n} time${n===1?"":"s"}">
+      <i style="height:${Math.max(2, Math.round(n/peak*100))}%"></i><span>${face}</span></div>`;
+  }).join("")}</div>`;
+}
+
+// Thirteen weeks of activity, newest column on the right, the way a
+// contribution graph reads. The shade is how many events were logged that day.
+function stHeatmap(days) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - 90 - today.getDay());   // begin on a Sunday
+  const peak = Math.max(1, ...Object.values(days));
+  const cells = [];
+  for (let d = new Date(start); d <= today; d.setDate(d.getDate()+1)) {
+    const k = dayKey(d), n = days[k] || 0;
+    const lvl = !n ? 0 : n >= peak*0.66 ? 4 : n >= peak*0.33 ? 3 : n > 1 ? 2 : 1;
+    cells.push(`<i class="l${lvl}" title="${k}: ${n} event${n===1?"":"s"}"></i>`);
+  }
+  return `<div class="st-heat">${cells.join("")}</div>
+    <div class="st-heat-key"><span>13 weeks ago</span><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>today</span></div>`;
+}
+
+// The coins a character started with, which sit in the purse rather than in the
+// pack. Same rule as startingCoins(), but for any record rather than the one in
+// play.
+function startingCoinsOf(who) {
+  const cl = who.cls ? CLASSES[who.cls] : null;
+  const bg = who.background ? BACKGROUNDS[who.background] : null;
+  const out = {};
+  [...(cl?cl.equipment:[]), ...(bg?bg.equipment:[])].forEach(e=>{
+    const m = COIN_RE.exec(String(e).trim());
+    if (m) { const k = m[2].toLowerCase(); out[k] = (out[k]||0) + Number(m[1]); }
+  });
+  return out;
+}
+
+function renderStats() {
+  const el = document.getElementById("statsBody");
+  if (!el) return;
+  const list = loadStore();
+  const S = STATS;
+
+  // ----- play tallies -----
+  const d20Total = Object.values(S.d20).reduce((a,b)=>a+b, 0);
+  const d20Sum = Object.entries(S.d20).reduce((a,[f,n])=>a + Number(f)*n, 0);
+  const trayTotal = Object.values(S.dice).reduce((a,t)=>a+t.n, 0);
+  const nat20 = S.d20[20] || 0, nat1 = S.d20[1] || 0;
+  const avgD20 = d20Total ? d20Sum / d20Total : 0;
+  const streak = stStreaks(S.days);
+  const events = Object.values(S.events).reduce((a,b)=>a+b, 0);
+
+  // ----- the roster, counted fresh -----
+  const alive = list.filter(c=>!c.retired);
+  const levels = list.map(c=>c.level || 1);
+  const byClass = {}, bySpecies = {};
+  const spellUse = {}, itemUse = {}, featUse = {};
+  let partyCp = 0, partyHp = 0;
+  list.forEach(c => {
+    if (c.cls) byClass[c.cls] = (byClass[c.cls]||0) + 1;
+    if (c.species) bySpecies[c.species] = (bySpecies[c.species]||0) + 1;
+    (c.spells||[]).forEach(n=>{ spellUse[n] = (spellUse[n]||0) + 1; });
+    (c.feats||[]).forEach(n=>{ featUse[n] = (featUse[n]||0) + 1; });
+    equipmentOf(c).forEach(n=>{ itemUse[n] = (itemUse[n]||0) + 1; });
+    partyHp += c.maxHp || 0;
+    const start = startingCoinsOf(c);
+    COINS.forEach(k=>{ partyCp += ((start[k.k]||0) + ((c.coins||{})[k.k]||0)) * k.cp; });
+  });
+  const spellTotal = Object.values(spellUse).reduce((a,b)=>a+b, 0);
+  const itemTotal = Object.values(itemUse).reduce((a,b)=>a+b, 0);
+  const featTotal = Object.values(featUse).reduce((a,b)=>a+b, 0);
+
+  // ----- the library -----
+  const libBy = {}, libSrc = {};
+  RULES.forEach(r=>{
+    const c = ruleCat(r); libBy[c] = (libBy[c]||0) + 1;
+    const s = r.src || SRC_SRD; libSrc[s] = (libSrc[s]||0) + 1;
+  });
+  const libLoading = [bestiaryState, itemsState, extraState].some(x=>x === "loading");
+  const libIdle = [bestiaryState, itemsState, extraState].some(x=>x === "idle");
+
+  if (!d20Total && !trayTotal && !events && !list.length) {
+    el.innerHTML = `<section class="panel">
+      <div class="st-empty" style="padding:2rem 1rem;text-align:center">
+        <div style="font-size:2rem">🎲</div>
+        <p>No numbers yet. Save a character, roll some dice, and this page fills itself in.</p>
+        <p style="font-size:.85rem">Everything here is counted in this browser and never leaves it.</p>
+      </div></section>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="st-hero">
+      ${stBig(fmtN(list.length), list.length === 1 ? "character saved" : "characters saved",
+              list.length ? `${fmtN(levels.reduce((a,b)=>a+b,0))} levels between them` : "")}
+      ${stBig(fmtN(d20Total + trayTotal), "dice rolled", d20Total ? `${fmtN(nat20)} natural 20s` : "")}
+      ${stBig(fmtN(S.hp.damage), "damage taken", `${fmtN(S.hp.healed)} HP healed back`)}
+      ${stBig(fmtN(streak.active), streak.active === 1 ? "day played" : "days played", `since ${stDate(S.firstAt)}`)}
+    </div>
+
+    <div class="mod-grid">
+      <section class="panel span-all">
+        <h3 class="mod-h">Every d20 you have rolled</h3>
+        ${d20Total ? stD20Chart() + `
+          <div class="st-rows">
+            ${stRow("Average roll", avgD20.toFixed(2), "a fair d20 averages 10.5")}
+            ${stRow("Natural 20s", `${fmtN(nat20)} <small>(${(nat20/d20Total*100).toFixed(1)}%)</small>`, "5% is par")}
+            ${stRow("Natural 1s", `${fmtN(nat1)} <small>(${(nat1/d20Total*100).toFixed(1)}%)</small>`)}
+            ${stRow("Rolled with Advantage", fmtN(S.adv))}
+            ${stRow("Rolled with Disadvantage", fmtN(S.dis))}
+          </div>
+          <div class="st-note">${avgD20 >= 10.5
+            ? `Your dice are running <b>${(avgD20-10.5).toFixed(2)} above</b> a fair average. Enjoy it while it lasts.`
+            : `Your dice are running <b>${(10.5-avgD20).toFixed(2)} below</b> a fair average. The odds owe you nothing, but they do even out.`}</div>`
+        : `<div class="st-empty">No d20 rolled yet. Every attack, save, and check on a character sheet counts here.</div>`}
+      </section>
+
+      <section class="panel">
+        <h3 class="mod-h">The dice tray</h3>
+        ${stBars(Object.entries(S.dice).sort((a,b)=>Number(a[0])-Number(b[0])).map(([sides,t])=>[`d${sides}`, t.n]),
+                 {empty:"No loose dice thrown yet. The Basics tab has a set.", max:9, unit:" rolls"})}
+        ${trayTotal ? `<div class="st-rows">${Object.entries(S.dice).sort((a,b)=>Number(a[0])-Number(b[0]))
+            .map(([sides,t])=>stRow(`d${sides} average`, (t.sum/t.n).toFixed(2), `fair average ${((Number(sides)+1)/2).toFixed(1)}`)).join("")}</div>` : ""}
+      </section>
+
+      <section class="panel">
+        <h3 class="mod-h">Initiative</h3>
+        ${S.init.n ? `<div class="st-rows">
+          ${stRow("Rolled", fmtN(S.init.n) + (S.init.n === 1 ? " time" : " times"))}
+          ${stRow("Average result", (S.init.sum/S.init.n).toFixed(1))}
+          ${stRow("Best", fmtN(S.init.best))}
+          ${stRow("Worst", fmtN(S.init.worst))}
+        </div>` : `<div class="st-empty">No initiative rolled yet. It is the INITIATIVE box at the top of a character sheet.</div>`}
+      </section>
+
+      <section class="panel">
+        <h3 class="mod-h">Wounds and mending</h3>
+        <div class="st-rows">
+          ${stRow("Damage taken", fmtN(S.hp.damage))}
+          ${stRow("HP healed", fmtN(S.hp.healed))}
+          ${stRow("Temporary HP gained", fmtN(S.hp.temp))}
+          ${stRow("Biggest single hit", fmtN(S.hp.biggestHit))}
+          ${stRow("Biggest single heal", fmtN(S.hp.biggestHeal))}
+          ${stRow("Times dropped to 0 HP", fmtN(S.hp.downed))}
+          ${stRow("Times back on their feet", fmtN(S.hp.revived))}
+        </div>
+        ${S.hp.damage ? `<div class="st-note">${S.hp.healed >= S.hp.damage
+          ? "You have been patched up more than you have been hurt. Whoever plays the healer has earned a drink."
+          : `You are carrying <b>${fmtN(S.hp.damage - S.hp.healed)} HP</b> more damage than healing.`}</div>` : ""}
+      </section>
+
+      <section class="panel">
+        <h3 class="mod-h">Death saves</h3>
+        ${S.death.rolls ? `<div class="st-rows">
+          ${stRow("Death saves rolled", fmtN(S.death.rolls))}
+          ${stRow("Passed", fmtN(S.death.pass))}
+          ${stRow("Failed", fmtN(S.death.fail))}
+          ${stRow("Natural 20s", fmtN(S.death.nat20), "straight back up with 1 HP")}
+          ${stRow("Natural 1s", fmtN(S.death.nat1), "two failures each")}
+          ${stRow("Characters who died", fmtN(S.death.died))}
+        </div>` : `<div class="st-empty">Nobody has had to roll one. Long may that last.</div>`}
+      </section>
+
+      <section class="panel">
+        <h3 class="mod-h">Camp and campaign</h3>
+        <div class="st-rows">
+          ${stRow("Long rests", fmtN(S.rest.long))}
+          ${stRow("Short rests", fmtN(S.rest.short))}
+          ${stRow("Hit Dice spent", fmtN(S.rest.hitDice))}
+          ${stRow("Rests interrupted", fmtN(S.rest.interrupted))}
+          ${stRow("Level ups", fmtN(S.lvl.ups))}
+          ${stRow("XP awarded", fmtN(S.xp))}
+        </div>
+        ${Object.keys(S.lvl.by).length ? `<h4 class="st-sub">Levels gained by class</h4>${stBars(stSorted(S.lvl.by))}` : ""}
+      </section>
+
+      <section class="panel">
+        <h3 class="mod-h">Spellwork</h3>
+        <div class="st-rows">
+          ${stRow("Spells cast", fmtN(S.cast.total))}
+          ${stRow("Spell slots spent", fmtN(S.cast.slots))}
+          ${stRow("Cantrips cast", fmtN(S.cast.cantrip))}
+        </div>
+        ${Object.keys(S.cast.by).length
+          ? `<h4 class="st-sub">Most cast</h4>${stBars(stSorted(S.cast.by), {unit:" casts"})}`
+          : `<div class="st-empty">No spells cast yet. Open a spell on a sheet to cast it.</div>`}
+      </section>
+
+      <section class="panel">
+        <h3 class="mod-h">Loot and burden</h3>
+        <div class="st-rows">
+          ${stRow("Items picked up", fmtN(S.gear.picked))}
+          ${stRow("Items dropped", fmtN(S.gear.dropped))}
+          ${stRow("Attunements made", fmtN(S.gear.attuned))}
+          ${stRow("Coin earned", fmtN(S.coins.gained/100) + " gp")}
+          ${stRow("Coin spent", fmtN(S.coins.spent/100) + " gp")}
+        </div>
+        ${Object.keys(S.gear.by).length ? `<h4 class="st-sub">Most picked up</h4>${stBars(stSorted(S.gear.by))}` : ""}
+      </section>
+
+      <section class="panel">
+        <h3 class="mod-h">Conditions suffered</h3>
+        ${stBars(stSorted(S.conds), {empty:"None so far. Your characters lead charmed lives.", max:8})}
+      </section>
+
+      <section class="panel">
+        <h3 class="mod-h">Your roster</h3>
+        ${list.length ? `<div class="st-rows">
+          ${stRow("Characters saved", fmtN(list.length))}
+          ${stRow("Still adventuring", fmtN(alive.length))}
+          ${stRow("Retired or fallen", fmtN(list.length - alive.length))}
+          ${stRow("Highest level", fmtN(Math.max(...levels)))}
+          ${stRow("Average level", (levels.reduce((a,b)=>a+b,0)/levels.length).toFixed(1))}
+          ${stRow("Hit points between them", fmtN(partyHp))}
+          ${stRow("Gold between them", fmtN(partyCp/100) + " gp")}
+        </div>
+        <h4 class="st-sub">By class</h4>${stBars(stSorted(byClass))}
+        <h4 class="st-sub">By species</h4>${stBars(stSorted(bySpecies))}`
+        : `<div class="st-empty">No saved characters yet.</div>`}
+      </section>
+
+      <section class="panel">
+        <h3 class="mod-h">What they know and carry</h3>
+        ${list.length ? `<div class="st-rows">
+          ${stRow("Spells prepared", fmtN(spellTotal), `${fmtN(Object.keys(spellUse).length)} different`)}
+          ${stRow("Items carried", fmtN(itemTotal), `${fmtN(Object.keys(itemUse).length)} different`)}
+          ${stRow("Feats taken", fmtN(featTotal), `${fmtN(Object.keys(featUse).length)} different`)}
+        </div>
+        <h4 class="st-sub">Most prepared spells</h4>${stBars(stSorted(spellUse), {unit:" characters", empty:"Nobody has any spells prepared."})}
+        <h4 class="st-sub">Most carried items</h4>${stBars(stSorted(itemUse), {unit:" characters"})}`
+        : `<div class="st-empty">Nothing to count until a character is saved.</div>`}
+      </section>
+
+      <section class="panel span-all">
+        <h3 class="mod-h">Days played</h3>
+        ${stHeatmap(S.days)}
+        <div class="st-rows">
+          ${stRow("Days with something logged", fmtN(streak.active))}
+          ${stRow("Current streak", fmtN(streak.current) + (streak.current === 1 ? " day" : " days"))}
+          ${stRow("Longest streak", fmtN(streak.longest) + (streak.longest === 1 ? " day" : " days"))}
+          ${stRow("First seen", stDate(S.firstAt))}
+          ${stRow("Last played", stDate(S.lastAt))}
+          ${stRow("Events logged", fmtN(events))}
+        </div>
+      </section>
+
+      <section class="panel span-all">
+        <h3 class="mod-h">The library</h3>
+        <div class="st-rows">
+          ${stRow("Reference entries loaded", fmtN(RULES.length))}
+          ${stRow("Sources", fmtN(Object.keys(libSrc).length))}
+        </div>
+        ${libLoading ? `<div class="st-note">Still loading the bestiary, the item catalogue, and the third-party sources, so these numbers will grow.</div>` : ""}
+        ${libIdle && !libLoading ? `<div class="st-note">Most of the library loads on demand. <span class="ref-link" onclick="loadBestiary();loadItems();loadExtraSources();renderStats()">Load all of it now</span> to count it.</div>` : ""}
+        <h4 class="st-sub">By type</h4>${stBars(stSorted(libBy), {max:10, unit:" entries"})}
+        <h4 class="st-sub">By source</h4>${stBars(stSorted(libSrc), {max:10, unit:" entries"})}
+      </section>
+    </div>`;
+}
+// The bestiary, the item catalogue, and the third-party sources land long after
+// the page may have been drawn, and they change what the library holds.
+function refreshStatsIfOpen() {
+  const page = document.getElementById("tab-stats");
+  if (page && page.classList.contains("active")) renderStats();
+}
+
 // ---------- INSTALLABLE APP ----------
 // The service worker is what lets Chrome offer "Install", and it keeps the
 // app working with no connection. It needs a secure context, so it is skipped
@@ -3267,7 +3760,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 
 // The manifest's shortcuts open a specific tab, e.g. #create. Only read on
 // load, never written, so it cannot collide with the #c= share links.
-const HASH_TABS = { basics:"quickref", create:"create", characters:"saved", reference:"rules", settings:"settings" };
+const HASH_TABS = { basics:"quickref", create:"create", characters:"saved", reference:"rules", stats:"stats", settings:"settings" };
 function openTabFromHash() {
   const key = (location.hash || "").replace(/^#/, "").toLowerCase();
   const tab = HASH_TABS[key];
