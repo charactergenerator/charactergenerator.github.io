@@ -1,6 +1,6 @@
 // Service worker: makes the app installable and usable with no connection.
 // Bump VERSION on any deploy that should drop the old cache.
-const VERSION = 'v104';
+const VERSION = 'v105';
 const CACHE = `chargen-${VERSION}`;
 
 // The shell needed to boot offline. The versioned css/js are not listed: they
