@@ -39,9 +39,9 @@ The sheet is a live play surface, not a printout:
 
 ## 📚 Look Anything Up
 
-- 🔍 A **Reference** tab with **3,500+ searchable entries**: every spell, all class features, subclasses, feats, and species traits, conditions, combat actions, spellcasting and rests, 586 creature stat blocks, and an **Equipment catalogue of 1,800+ items** from adventuring gear and trade goods to artifacts. Typing a name puts that name at the top rather than everything that merely mentions it
+- 🔍 A **Reference** tab with **6,500+ searchable entries**: every spell, all class features, subclasses, feats, and species traits, conditions, combat actions, spellcasting and rests, **2,500+ creature stat blocks**, and an **Equipment catalogue of 2,100+ items** from adventuring gear and trade goods to artifacts. Typing a name puts that name at the top rather than everything that merely mentions it
 - 🏷️ **Type chips** with live counts filter the list and combine with the search box. Types condense to Spell, Creature, Character, and Equipment; each card still names its own kind and the book it came from
-- 🐉 **586 creatures** from the Monstrous Menagerie sit in the Reference as a Creature type: search them alongside everything else by name, type, size, or trait, and open a full stat block with rollable ability checks. The megabyte of stat blocks loads in the background the first time you open Reference
+- 🐉 **2,521 creatures** from the Monstrous Menagerie, Tome of Beasts 1 to 3, and the Creature Codex sit in the Reference as a Creature type: search them alongside everything else by name, type, size, or trait, and open a full stat block with rollable ability checks, credited to the book it came from. The stat blocks load in the background the first time you open Reference
 - ℹ️ Nearly everything is clickable: sheet features, species traits, equipment, the level-up and rest overlays, and the Basics page all open in-place reference definitions
 - 🧭 A beginner-friendly **Basics** tab (the whole game on one page, with clickable dice-shaped icons)
 
@@ -72,6 +72,8 @@ Built from freely licensed game content. Full attribution is in the app under **
 - **Level Up: Monstrous Menagerie** (c) 2021 EN Publishing, author Paul Hughes, released under the Open Game License v1.0a only and used here under that licence. See [OGL.txt](OGL.txt) for the licence and its Section 15 notice.
 - **System Reference Document 5.1** (c) 2023 Wizards of the Coast LLC, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode). Source of much of the Reference tab's equipment; where an item is in both, the SRD 5.2 version is the one the sheet uses.
 - **Vault of Magic for 5th Edition** (c) 2022 and **Tome of Heroes** (c) 2022 Open Design LLC, published by [Kobold Press](https://koboldpress.com), and **Critical Role: Tal'Dorei Campaign Setting** (c) 2017 Green Ronin Publishing, LLC: further magic items, used under the Open Game License v1.0a. See [OGL.txt](OGL.txt).
+- **Deep Magic for 5th Edition** (c) 2020, **Deep Magic: Extended** (c) 2022, **Tome of Beasts** (c) 2016, **Tome of Beasts 1 (2023 Edition)** (c) 2023, **Tome of Beasts 2** (c) 2020, **Tome of Beasts 3** (c) 2022, and **Creature Codex** (c) 2018, all Open Design LLC, published by [Kobold Press](https://koboldpress.com): spells and creature stat blocks, used under the Open Game License v1.0a. See [OGL.txt](OGL.txt).
+- **Spells That Don't Suck** by [Somanyrobots](https://www.somanyrobots.com/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode): 180 spells. Not Open Game Content.
 - The extended equipment catalogue is the item set compiled by the companion [DM Screen](https://dmscreen.github.io/) project.
 - EN Publishing content was retrieved through the [Open5e](https://open5e.com) API.
 
