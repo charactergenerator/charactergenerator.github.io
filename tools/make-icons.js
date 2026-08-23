@@ -14,6 +14,12 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const ACCENT = [0x22, 0xc5, 0x5e];   // --accent in dark mode
 const BG     = [0x0e, 0x0f, 0x11];   // --bg in dark mode
+// A tab favicon is a flat PNG and cannot follow the page theme the way
+// favicon.svg does, so it needs one green that survives both a light and a
+// dark tab strip. The dark theme's accent is too pale on white and the light
+// theme's is too dim on charcoal; this sits between them at roughly 3.5:1
+// against white and 3.2:1 against a dark strip.
+const TAB    = [0x1a, 0x9c, 0x4a];
 
 // The mark, in the 40x40 space favicon.svg uses. Same points and stroke as
 // the polygon in favicon.svg; keep the two in step.
@@ -41,7 +47,8 @@ function distHex(px, py) {
 
 // One icon. `markScale` is how much of the canvas the mark fills, leaving the
 // rest as padding: maskable icons need their content inside a safe circle.
-function render(size, markScale, transparentBg) {
+function render(size, markScale, transparentBg, ink) {
+  const MARK = ink || ACCENT;
   const SS = 4;                        // supersample for smooth edges
   const px = Buffer.alloc(size * size * 4);
   const span = 40 / markScale;         // world units across the canvas
@@ -60,9 +67,9 @@ function render(size, markScale, transparentBg) {
       const a = hit / (SS*SS);
       const i = (y*size + x) * 4;
       // composite the accent mark over the background
-      for (let ch = 0; ch < 3; ch++) px[i+ch] = Math.round(ACCENT[ch]*a + BG[ch]*(1-a));
+      for (let ch = 0; ch < 3; ch++) px[i+ch] = Math.round(MARK[ch]*a + BG[ch]*(1-a));
       px[i+3] = transparentBg ? Math.round(255*a) : 255;
-      if (transparentBg && a > 0) for (let ch = 0; ch < 3; ch++) px[i+ch] = ACCENT[ch];
+      if (transparentBg && a > 0) for (let ch = 0; ch < 3; ch++) px[i+ch] = MARK[ch];
     }
   }
   return px;
@@ -106,14 +113,54 @@ function png(size, rgba) {
 }
 
 const JOBS = [
-  // name,                  size, mark scale, transparent
+  // name,                  size, mark scale, transparent, ink
   ["icon-192.png",           192, 0.86, false],
   ["icon-512.png",           512, 0.86, false],
   ["icon-maskable-512.png",  512, 0.62, false],   // mark inside the safe circle
-  ["apple-touch-icon.png",   180, 0.86, false]    // iOS draws its own rounding
+  ["apple-touch-icon.png",   180, 0.86, false],   // iOS draws its own rounding
+  // Tab favicons, transparent so they sit on whatever the browser paints
+  // behind them. WebKit does not use an SVG favicon, so without these an iPad
+  // shows nothing at all.
+  ["favicon-16.png",          16, 0.94, true, TAB],
+  ["favicon-32.png",          32, 0.94, true, TAB],
+  ["favicon-48.png",          48, 0.94, true, TAB]
 ];
-JOBS.forEach(([name, size, scale, transparent]) => {
+JOBS.forEach(([name, size, scale, transparent, ink]) => {
   const file = path.join(OUT, name);
-  fs.writeFileSync(file, png(size, render(size, scale, transparent)));
+  fs.writeFileSync(file, png(size, render(size, scale, transparent, ink)));
   console.log(`${name.padEnd(24)} ${size}x${size}  ${(fs.statSync(file).size/1024).toFixed(1)} KB`);
 });
+
+// ---- favicon.ico -------------------------------------------------------
+// Browsers ask for /favicon.ico whether or not the page links one, and some
+// older ones use nothing else. An .ico is a small header plus one directory
+// entry per size; each entry here holds a whole PNG, which every browser that
+// matters has understood for well over a decade.
+function ico(entries) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);              // reserved
+  header.writeUInt16LE(1, 2);              // 1 = icon
+  header.writeUInt16LE(entries.length, 4);
+  const dir = Buffer.alloc(16 * entries.length);
+  let offset = header.length + dir.length;
+  entries.forEach((e, i) => {
+    const at = i * 16;
+    dir[at]     = e.size >= 256 ? 0 : e.size;   // 0 means 256
+    dir[at + 1] = e.size >= 256 ? 0 : e.size;
+    dir[at + 2] = 0;                            // palette size
+    dir[at + 3] = 0;                            // reserved
+    dir.writeUInt16LE(1, at + 4);               // colour planes
+    dir.writeUInt16LE(32, at + 6);              // bits per pixel
+    dir.writeUInt32LE(e.data.length, at + 8);
+    dir.writeUInt32LE(offset, at + 12);
+    offset += e.data.length;
+  });
+  return Buffer.concat([header, dir, ...entries.map(e => e.data)]);
+}
+
+const ROOT = path.join(__dirname, "..");
+const icoFile = path.join(ROOT, "favicon.ico");
+fs.writeFileSync(icoFile, ico([16, 32, 48].map(size => ({
+  size, data: png(size, render(size, 0.94, true, TAB))
+}))));
+console.log(`${"favicon.ico".padEnd(24)} 16+32+48  ${(fs.statSync(icoFile).size/1024).toFixed(1)} KB`);
