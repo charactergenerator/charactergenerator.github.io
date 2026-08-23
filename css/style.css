@@ -53,7 +53,6 @@
   body.dark .qr-banner { color: #06230f; }
   body.dark .qr-h { color: #06230f; }
   body.dark .asi-chip.picked { color: #06230f; }
-  body.dark .qr-dice svg:hover text { fill: #06230f; }
   body.dark #btnSave, body.dark #btnSaveTop, body.dark .lvl-confirm { background: var(--accent); border-color: var(--accent); color: #06230f; }
   body.dark #btnSave:hover, body.dark #btnSaveTop:hover, body.dark .lvl-confirm:hover { background: #2ee06f; border-color: #2ee06f; }
   * { box-sizing: border-box; }
@@ -618,14 +617,31 @@
   .qr-sec p, .qr-sec ol { font-size: .93rem; line-height: 1.5; margin: .25rem 0; }
   .qr-sec ol { padding-left: 1.3rem; }
   .qr-dice { display: flex; gap: 1.1rem; justify-content: center; align-items: center; flex-wrap: wrap; margin: 1rem 0 .4rem; }
-  .qr-dice svg { width: 58px; height: 58px; cursor: pointer; transition: transform .15s ease; overflow: visible; }
-  .qr-dice svg:hover { transform: translateY(-3px) scale(1.06); }
-  .qr-dice svg .shape { fill: var(--card); stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; }
-  .qr-dice svg:hover .shape { fill: var(--accent); }
+  /* The dice take their colour from one `color` on the svg and paint with
+     currentColor from there. Naming a custom property directly inside `fill`
+     or `stroke` is the one thing to avoid here: Safari has been unreliable
+     resolving var() in SVG paint properties, and when it gives up the shape
+     falls back to its initial paint, which is how the dice ended up pale with
+     numerals that could not be read against them. `color` and currentColor are
+     handled properly everywhere. */
+  .qr-dice svg { width: 58px; height: 58px; cursor: pointer; transition: transform .15s ease; overflow: visible; color: var(--accent); }
+  .qr-dice svg .shape { fill: #fffdf8; stroke: currentColor; stroke-width: 2.5; stroke-linejoin: round; }
+  body.dark .qr-dice svg .shape { fill: #202226; }
   /* Size comes from each die's own font-size attribute, scaled by the viewBox;
      the numeral font is set alongside .die-ico text so both stay in step */
-  .qr-dice svg text { fill: var(--accent); font-weight: bold; text-anchor: middle; }
-  .qr-dice svg:hover text { fill: #fff; }
+  .qr-dice svg text { fill: currentColor; font-weight: bold; text-anchor: middle; }
+  /* Lifting and inverting a die is for a real pointer. On a touch screen :hover
+     latches after a tap, so a die stayed inverted until something else was
+     tapped. :active gives the same feedback for the length of the press. */
+  @media (hover: hover) {
+    .qr-dice svg:hover { transform: translateY(-3px) scale(1.06); }
+    .qr-dice svg:hover .shape { fill: currentColor; }
+    .qr-dice svg:hover text { fill: #fffdf8; }
+    body.dark .qr-dice svg:hover text { fill: #06230f; }
+  }
+  .qr-dice svg:active .shape { fill: currentColor; }
+  .qr-dice svg:active text { fill: #fffdf8; }
+  body.dark .qr-dice svg:active text { fill: #06230f; }
   .qr-dice svg.d20die { width: 68px; height: 68px; }
   .qr-dice svg .halo { fill: none; stroke: #c9a227; stroke-width: 2; }
   .qr-dice-title { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
