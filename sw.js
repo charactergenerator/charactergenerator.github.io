@@ -1,6 +1,6 @@
 // Service worker: makes the app installable and usable with no connection.
 // Bump VERSION on any deploy that should drop the old cache.
-const VERSION = 'v109';
+const VERSION = 'v110';
 const CACHE = `chargen-${VERSION}`;
 
 // The shell needed to boot offline. The versioned css/js are not listed: they
@@ -12,6 +12,7 @@ const PRECACHE = [
   'manifest.webmanifest',
   'favicon.svg',
   'favicon.ico',
+  'assets/favicon-16.png',
   'assets/favicon-32.png',
   'assets/icon-192.png',
   'assets/icon-512.png',
