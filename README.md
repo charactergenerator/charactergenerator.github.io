@@ -35,7 +35,7 @@ The sheet is a live play surface, not a printout:
 - ⛺🌙 **Short and Long Rest overlays** that spend hit dice, restore HP and spell slots, and handle interruptions. Nothing applies until you confirm, and casters can swap their prepared spells overnight (random or hand-picked)
 - ⬆️ **Level up to 20** through an in-page flow: per-class features that scale correctly (Rage, Sneak Attack, Martial Arts, spell counts...), rolled or average HP, your **subclass** chosen at level 3 (an SRD one, or your own named subclass with features you enter by level) with its features arriving on schedule, ability score improvements **or one of 73 feats**, new spells rolled for you or picked yourself, cancel anytime
 - 💀 At 0 HP the sheet locks into a **dying overlay**: automated death saves, stabilization, resurrection, or an honorable 🪦 retirement. Dead heroes can be ✨ resurrected later from their sheet
-- 📖 **History log** of every roll, rest, cast, level-up, edit, and near-death experience
+- 📖 **History log** of every roll, rest, cast, level-up, edit, and near-death experience, and a **Stats** tab that keeps the lifetime totals behind it
 
 ## 📚 Look Anything Up
 
@@ -44,6 +44,21 @@ The sheet is a live play surface, not a printout:
 - 🐉 **2,521 creatures** from the Monstrous Menagerie, Tome of Beasts 1 to 3, and the Creature Codex sit in the Reference as a Creature type: search them alongside everything else by name, type, size, or trait, and open a full stat block with rollable ability checks, credited to the book it came from. The stat blocks load in the background the first time you open Reference
 - ℹ️ Nearly everything is clickable: sheet features, species traits, equipment, the level-up and rest overlays, and the Basics page all open in-place reference definitions
 - 🧭 A beginner-friendly **Basics** tab (the whole game on one page, with clickable dice-shaped icons)
+
+## 📊 Your Numbers
+
+- 📈 A **Stats** tab counting everything you have ever done in the app. It keeps its own running tallies, so it can answer questions the 200-entry history log cannot
+- 🎲 **Every d20 you have rolled**, as a bar per face, with your lifetime average against a fair die's 10.5, your natural 20 and natural 1 rates against the 5% you should expect, and how often you rolled with advantage or disadvantage. Attacks, saves, checks, and death saves all count
+- ⚔️ **Initiative** rolled, averaged, best and worst, and the loose dice from the Basics tray with each die's running average against its fair one
+- ❤️‍🩹 **Wounds and mending**: damage taken, HP healed, temporary HP, your biggest single hit and biggest single heal, and how many times you have hit 0 and got back up
+- 💀 **Death saves** passed, failed, rolled naturally, and how many characters did not make it
+- ⛺ **Camp and campaign**: long and short rests, hit dice spent, rests interrupted, level ups by class, XP awarded
+- ✨ **Spellwork and loot**: spells cast and slots spent with your most-cast spells, items picked up and dropped, attunements, coin earned and spent, and the conditions your characters suffer most
+- 👥 **Your roster**, counted fresh from the saved characters every time: how many, how many still adventuring, average and highest level, hit points and gold between them, and the spread by class and species
+- 🎒 **What they know and carry**: the spells prepared and items carried across the whole roster, with the most popular of each
+- 📅 A **days played** heatmap of the last thirteen weeks, with your current and longest streaks and the date you first opened the app
+- 📚 **The library** itself: how many reference entries are loaded, broken down by type and by source book
+- Everything is counted in your browser and never leaves it. It rides along in the **Backup** file, and a restore adopts it into a browser that has no tally of its own
 
 ## 💾 Your Characters, Kept
 
@@ -54,7 +69,7 @@ The sheet is a live play surface, not a printout:
 - 🔒 Characters are held in browser storage, which survives deploys, updates, and cache clears. The app keeps a second copy of the last good list and refuses to write an empty one over your data if a read ever comes back unreadable, says so plainly if the browser rejects a write, and asks the browser to mark the data persistent so it is not evicted when the device runs short of space. Settings shows where all that stands
 - 🌙 Dark mode by default, ☀️ light mode in settings. One design in two palettes: the type, weights, spacing and corners are identical and only the colours change, both built around the same green
 - 📱 Sidebar navigation on desktop and tablet, app-style bottom bar on phones. Settings sits in its own block at the foot of the sidebar. The sidebar switches on hover by default; Settings has a hover-or-click toggle
-- 📲 On a phone the bar's last stop is **More**, a sheet of tiles holding Settings and the sister tools, since five slots cannot hold everything the sidebar does
+- 📲 On a phone the bar's last stop is **More**, a sheet of tiles holding Settings, Stats, and the sister tools, since five slots cannot hold everything the sidebar does
 - 🧱 Every page is built from modules: the heading sits on the page and each block of content is its own card, rather than one box wrapping the whole tab
 - 🔗 A **More** group at the bottom of the sidebar links out to the sister tools, [Auto Roll Tables](https://autorolltables.github.io/) and [DM Screen](https://dmscreen.github.io/)
 - 📲 **Installable**: Chrome offers an Install button in the address bar, and iOS can Add to Home Screen. It then opens in its own window with no browser chrome, and works with no connection at all
