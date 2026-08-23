@@ -123,7 +123,12 @@ const JOBS = [
   // shows nothing at all.
   ["favicon-16.png",          16, 0.94, true, TAB],
   ["favicon-32.png",          32, 0.94, true, TAB],
-  ["favicon-48.png",          48, 0.94, true, TAB]
+  ["favicon-48.png",          48, 0.94, true, TAB],
+  // Larger transparent renders for the same tab-icon list. The install icons
+  // at these sizes carry an opaque plate on purpose, and a browser that picked
+  // one of those for a tab would draw a dark square in a light tab strip.
+  ["favicon-192.png",        192, 0.94, true, TAB],
+  ["favicon-512.png",        512, 0.94, true, TAB]
 ];
 JOBS.forEach(([name, size, scale, transparent, ink]) => {
   const file = path.join(OUT, name);
