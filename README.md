@@ -21,6 +21,7 @@ The sheet is a live play surface, not a printout:
 - **Click anything to roll it**: abilities, saves, skills, initiative, weapon attacks, spell attacks. Results show the matching die icon in the toast and history
 - ⬆⬇ **Advantage and disadvantage** toggle that applies to every d20 test, showing both dice with the discarded one struck through
 - 🤢 **Conditions that actually do something**: a Conditions button drops down the full list to toggle, and the sheet applies what you pick: Poisoned rolls your attacks and checks at disadvantage, Restrained drops your Speed to 0, Paralyzed flags the saves that auto-fail, and anything incapacitating breaks your concentration. Manual advantage and a condition's disadvantage cancel, exactly as the rules say
+- ⌨️ **Escape** closes whatever overlay is on top, innermost first, so reading up a term from inside a level-up does not throw the level-up away
 - ↶ **Undo** for any misclick, 25 steps deep: HP, spell slots, class resources, death saves, conditions, coins, attunement, gear, XP, rests, and whole level-ups (subclass, feat, ability points, and new spells all roll back together)
 - 💥 **Type any amount** to take or heal, plus temporary HP tracking
 - ❤️‍🩹 **Bloodied** highlighting at half hit points, and buttons that grey out when there's nothing to spend, so no hit dice at full HP, no casting without a slot, no spending a resource you're out of
