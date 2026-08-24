@@ -119,16 +119,17 @@ const JOBS = [
   ["icon-maskable-512.png",  512, 0.62, false],   // mark inside the safe circle
   ["apple-touch-icon.png",   180, 0.86, false],   // iOS draws its own rounding
   // Tab favicons, transparent so they sit on whatever the browser paints
-  // behind them. WebKit does not use an SVG favicon, so without these an iPad
-  // shows nothing at all.
-  ["favicon-16.png",          16, 0.94, true, TAB],
-  ["favicon-32.png",          32, 0.94, true, TAB],
-  ["favicon-48.png",          48, 0.94, true, TAB],
+  // behind them. Named tab-N rather than favicon-N because Safari remembers a
+  // page's icon per URL, including a failure, and would not re-ask under the
+  // old names.
+  ["tab-16.png",              16, 0.94, true, TAB],
+  ["tab-32.png",              32, 0.94, true, TAB],
+  ["tab-48.png",              48, 0.94, true, TAB],
   // Larger transparent renders for the same tab-icon list. The install icons
   // at these sizes carry an opaque plate on purpose, and a browser that picked
   // one of those for a tab would draw a dark square in a light tab strip.
-  ["favicon-192.png",        192, 0.94, true, TAB],
-  ["favicon-512.png",        512, 0.94, true, TAB]
+  ["tab-192.png",            192, 0.94, true, TAB],
+  ["tab-512.png",            512, 0.94, true, TAB]
 ];
 JOBS.forEach(([name, size, scale, transparent, ink]) => {
   const file = path.join(OUT, name);
@@ -136,36 +137,8 @@ JOBS.forEach(([name, size, scale, transparent, ink]) => {
   console.log(`${name.padEnd(24)} ${size}x${size}  ${(fs.statSync(file).size/1024).toFixed(1)} KB`);
 });
 
-// ---- favicon.ico -------------------------------------------------------
-// Browsers ask for /favicon.ico whether or not the page links one, and some
-// older ones use nothing else. An .ico is a small header plus one directory
-// entry per size; each entry here holds a whole PNG, which every browser that
-// matters has understood for well over a decade.
-function ico(entries) {
-  const header = Buffer.alloc(6);
-  header.writeUInt16LE(0, 0);              // reserved
-  header.writeUInt16LE(1, 2);              // 1 = icon
-  header.writeUInt16LE(entries.length, 4);
-  const dir = Buffer.alloc(16 * entries.length);
-  let offset = header.length + dir.length;
-  entries.forEach((e, i) => {
-    const at = i * 16;
-    dir[at]     = e.size >= 256 ? 0 : e.size;   // 0 means 256
-    dir[at + 1] = e.size >= 256 ? 0 : e.size;
-    dir[at + 2] = 0;                            // palette size
-    dir[at + 3] = 0;                            // reserved
-    dir.writeUInt16LE(1, at + 4);               // colour planes
-    dir.writeUInt16LE(32, at + 6);              // bits per pixel
-    dir.writeUInt32LE(e.data.length, at + 8);
-    dir.writeUInt32LE(offset, at + 12);
-    offset += e.data.length;
-  });
-  return Buffer.concat([header, dir, ...entries.map(e => e.data)]);
-}
-
-const ROOT = path.join(__dirname, "..");
-const icoFile = path.join(ROOT, "favicon.ico");
-fs.writeFileSync(icoFile, ico([16, 32, 48].map(size => ({
-  size, data: png(size, render(size, 0.94, true, TAB))
-}))));
-console.log(`${"favicon.ico".padEnd(24)} 16+32+48  ${(fs.statSync(icoFile).size/1024).toFixed(1)} KB`);
+// No favicon.ico. The sibling DM Screen site, which renders on an iPad, does
+// not ship one, and ours drew nothing in Safari: every entry inside an .ico
+// built here is a PNG, which Safari's .ico path does not draw. Browsers that
+// ask for /favicon.ico unprompted simply get a 404 and fall back to the linked
+// PNGs.
