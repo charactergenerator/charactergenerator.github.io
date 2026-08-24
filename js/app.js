@@ -208,14 +208,17 @@ const UNDO_KEYS = ["curHp","tempHp","maxHp","deathS","deathF","stable","slotsUse
 let undoStack = [];
 function pushUndo(label) {
   const snap = {};
-  UNDO_KEYS.forEach(k=>{ snap[k] = JSON.parse(JSON.stringify(state[k] ?? null)); });
+  // null is a real value here: conc and customSub are null until something sets
+  // them, so "was it null" has to be distinguishable from "was it absent", or
+  // undoing the thing that set them leaves them set.
+  UNDO_KEYS.forEach(k=>{ if (state[k] !== undefined) snap[k] = JSON.parse(JSON.stringify(state[k])); });
   undoStack.push({label, snap});
   if (undoStack.length > 25) undoStack.shift();
 }
 function undoLast() {
   const step = undoStack.pop();
   if (!step) return;
-  UNDO_KEYS.forEach(k=>{ if (step.snap[k] !== null) state[k] = step.snap[k]; });
+  UNDO_KEYS.forEach(k=>{ if (k in step.snap) state[k] = step.snap[k]; });
   syncCreatorFields();
   logEvent("edit", `<b>Undid</b> ${step.label}`);
   renderSheet(); persistLoaded();
@@ -345,7 +348,7 @@ function saveCustomSub() {
   const first = !state.customSub;
   state.subclass = name;
   state.customSub = { d: desc, feats: (state.customSub && state.customSub.feats) || [] };
-  logEvent("level", `<b>Subclass ${first?"chosen":"updated"}</b>: ${name} <small>(custom)</small>`);
+  logEvent("level", `<b>Subclass ${first?"chosen":"updated"}</b>: ${escHtml(name)} <small>(custom)</small>`);
   renderSheet(); persistLoaded();
   openSubclassPicker();
 }
@@ -355,14 +358,14 @@ function addCustomSubFeature() {
   const f = (document.getElementById("customFeatText").value||"").trim();
   if (!f) { document.getElementById("customFeatText").focus(); return; }
   state.customSub.feats = [...(state.customSub.feats||[]), { lv: Math.max(1, Math.min(20, lv)), f }];
-  logEvent("level", `<b>${state.subclass}</b>: added level ${lv} feature "${f}"`);
+  logEvent("level", `<b>${escHtml(state.subclass)}</b>: added level ${lv} feature "${escHtml(f)}"`);
   renderSheet(); persistLoaded();
   openSubclassPicker();
 }
 function removeCustomSubFeature(i) {
   if (!state.customSub) return;
   const gone = state.customSub.feats.splice(i,1)[0];
-  if (gone) logEvent("level", `<b>${state.subclass}</b>: removed "${gone.f}"`);
+  if (gone) logEvent("level", `<b>${escHtml(state.subclass)}</b>: removed "${escHtml(gone.f)}"`);
   renderSheet(); persistLoaded();
   openSubclassPicker();
 }
@@ -444,6 +447,10 @@ function featDef(name) { return FEATS[name] || FEATS[String(name).split(" (")[0]
 // before it reaches markup
 const escHtml = s => String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 const escAttr = s => escHtml(s).replace(/"/g,"&quot;");
+// Player text that ends up inside an inline handler, as onclick="f('here')":
+// escaped for the JavaScript string first, then for the attribute holding it.
+// escQ alone leaves a double quote free to close the attribute early.
+const escJs = s => escAttr(escQ(String(s ?? "")));
 const rand = arr => arr[Math.floor(Math.random()*arr.length)];
 const mod = s => Math.floor((s-10)/2);
 const fmtMod = m => (m>=0?"+":"")+m;
@@ -631,6 +638,15 @@ function randomizeSpells() {
   ];
   renderSpellChoices();
 }
+// Everything that belonged to the old class and cannot follow the character to
+// a new one. Both ways of changing class go through this, so the dice button
+// and the dropdown cannot drift apart.
+function resetForNewClass() {
+  state.skills=[]; state.spells=[]; state.level=1; state.dieRolls=[];
+  state.slotsUsed={}; state.hdUsed=0; state.resUsed={}; state.conc=null;
+  state.gear=[]; state.dropped=[]; state.subclass=""; state.customSub=null;
+  state.feats=[]; state.attuned=[];
+}
 document.getElementById("btnRandSkills").addEventListener("click", ()=>{
   if (!state.cls) { alert("Pick a class first: its list decides which skills you can choose."); return; }
   randomizeSkills();
@@ -656,7 +672,7 @@ document.querySelectorAll("button[data-rp]").forEach(b=>{
 // ---------- RANDOMIZERS ----------
 const randomizers = {
   name: () => { state.name = rand(NAMES.first)+" "+rand(NAMES.last); document.getElementById("charName").value = state.name; },
-  class: () => { state.cls = rand(Object.keys(CLASSES)); document.getElementById("selClass").value = state.cls; randomizeSkills(); randomizeSpells(); },
+  class: () => { state.cls = rand(Object.keys(CLASSES)); document.getElementById("selClass").value = state.cls; resetForNewClass(); randomizeSkills(); randomizeSpells(); renderSkillChoices(); renderSpellChoices(); },
   species: () => { state.species = rand(Object.keys(SPECIES)); document.getElementById("selSpecies").value = state.species; },
   background: () => { state.background = rand(Object.keys(BACKGROUNDS)); document.getElementById("selBackground").value = state.background; randomizeSkills(); },
   alignment: () => { state.alignment = rand(ALIGNMENTS); document.getElementById("selAlignment").value = state.alignment; }
@@ -710,7 +726,7 @@ document.getElementById("charName").addEventListener("input", e=>{ state.name=e.
   document.getElementById(id).addEventListener("change", e=>{
     const key = {selClass:"cls",selSpecies:"species",selBackground:"background",selAlignment:"alignment"}[id];
     state[key] = e.target.value;
-    if (id==="selClass") { state.skills=[]; state.spells=[]; state.level=1; state.dieRolls=[]; state.slotsUsed={}; state.hdUsed=0; state.resUsed={}; state.conc=null; state.gear=[]; state.dropped=[]; state.subclass=""; state.customSub=null; state.feats=[]; state.attuned=[]; renderSkillChoices(); renderSpellChoices(); }
+    if (id==="selClass") { resetForNewClass(); renderSkillChoices(); renderSpellChoices(); }
     if (id==="selBackground") {
       // Free up any class pick the new background already grants, so the
       // player keeps their full allotment of distinct proficiencies
@@ -977,7 +993,7 @@ function renderSheet() {
     ? {lv, html: tag(lv)+allDice(escHtml(f)), act:"openSubclassPicker()", tip:"Your own subclass feature: click to edit"}
     : {lv, html: tag(lv)+allDice(f)}));
   // Feats: the background's origin feat plus anything taken at an ASI level
-  allFeats().forEach(f=>later.push({lv:f.at, html: tag(f.at)+(f.origin?"Origin Feat: ":"Feat: ")+f.n}));
+  allFeats().forEach(f=>later.push({lv:f.at, html: tag(f.at)+(f.origin?"Origin Feat: ":"Feat: ")+escHtml(f.n)}));
   later.sort((a,b)=>a.lv-b.lv);
   later.forEach(x=>features.push(x.act ? {html:x.html, act:x.act, tip:x.tip} : x.html));
   const traits = sp ? sp.traits.map(t=>allDice(t)) : [];
@@ -1071,11 +1087,11 @@ function renderSheet() {
   const rp = [["Personality Traits",state.traits],["Ideals",state.ideals],["Bonds",state.bonds],["Flaws",state.flaws],["Backstory & Notes",state.notes]].filter(x=>x[1]);
   const rpBlock = rp.length ? `
     <h3 class="section">Personality</h3>
-    <ul class="clean">${rp.map(([k,v])=>`<li><b>${k}:</b> ${v.replace(/</g,"&lt;")}</li>`).join("")}</ul>` : "";
+    <ul class="clean">${rp.map(([k,v])=>`<li><b>${k}:</b> ${escHtml(v)}</li>`).join("")}</ul>` : "";
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
-      <h2>${state.name || "Unnamed Hero"}</h2>
+      <h2>${escHtml(state.name) || "Unnamed Hero"}</h2>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
         ${state.retired?`<button onclick="resurrectCurrent()" title="Powerful magic calls them back with 1 HP">✨ Resurrect</button>
         <span style="border:1px solid var(--accent2);color:var(--accent2);border-radius:6px;padding:.3rem .6rem;font-weight:bold" title="This hero has been laid to rest">🪦 Retired · Dead</span>`:""}
@@ -1089,9 +1105,9 @@ function renderSheet() {
       </div>
     </div>
     ${rollModeLabel()?`<div class="mode-banner${rollMode==="dis"?" dis":""}">Rolling with ${rollModeLabel()} · <span onclick="setRollMode('${rollMode}')" style="cursor:pointer;text-decoration:underline">back to normal</span></div>`:""}
-    ${state.conc?`<div class="conc-banner">🌀 Concentrating on <b>${state.conc}</b> <button onclick="dropConc('dropped')" title="Stop concentrating">✕</button></div>`:""}
+    ${state.conc?`<div class="conc-banner">🌀 Concentrating on <b>${escHtml(state.conc)}</b> <button onclick="dropConc('dropped')" title="Stop concentrating">✕</button></div>`:""}
     ${subclassDue()?`<div class="warn-banner">⚠ You reached level ${SUBCLASS_LEVEL} without choosing a subclass. <span class="ref-link" onclick="openSubclassPicker()">Choose your ${state.cls} subclass</span> to pick up its features.</div>`:""}
-    <div class="tagline">Level ${state.level} ${state.species||"?"} ${state.cls||"?"}${state.subclass?` <span class="ref-link" onclick="${isCustomSub()?"openSubclassPicker()":`refLookup('${escQ(state.subclass)}')`}" title="${isCustomSub()?"Your own subclass: click to edit it or add features":"What is this?"}">(${escHtml(state.subclass)}${isCustomSub()?" ✎":""})</span>`:""} · ${state.background||"no background"} · ${state.alignment||"unaligned"}${state.playerName?` · played by ${state.playerName.replace(/</g,"&lt;")}`:""}</div>
+    <div class="tagline">Level ${state.level} ${escHtml(state.species)||"?"} ${escHtml(state.cls)||"?"}${state.subclass?` <span class="ref-link" onclick="${isCustomSub()?"openSubclassPicker()":`refLookup('${escQ(state.subclass)}')`}" title="${isCustomSub()?"Your own subclass: click to edit it or add features":"What is this?"}">(${escHtml(state.subclass)}${isCustomSub()?" ✎":""})</span>`:""} · ${escHtml(state.background)||"no background"} · ${escHtml(state.alignment)||"unaligned"}${state.playerName?` · played by ${escHtml(state.playerName)}`:""}</div>
     ${canAct?condSummary():""}
 
     <div class="vitals">
@@ -1152,26 +1168,28 @@ function renderSheet() {
         <h3 class="section">Equipment</h3>
         ${purseBlock(canAct)}
         <ul class="clean">${equipmentStacks().map(({name:e, qty})=>
-          `<li class="rollable" onclick="refLookup('${escQ(eqTermFrom(e))}')" title="Click for details">${e}${qty>1?` <b>×${qty}</b>`:""}${
+          `<li class="rollable" onclick="refLookup('${escJs(eqTermFrom(e))}')" title="Click for details">${escHtml(e)}${qty>1?` <b>×${qty}</b>`:""}${
             needsAttunement(e)?` <button class="attune-btn${isAttuned(e)?" on":""}" title="${isAttuned(e)?"Attuned: click to end":"Requires Attunement: click to attune"}"
-                    onclick="event.stopPropagation();toggleAttune('${escQ(e)}')">✦</button>`:""}${
+                    onclick="event.stopPropagation();toggleAttune('${escJs(e)}')">✦</button>`:""}${
             canAct?` <span style="float:right;white-space:nowrap">
-                    <button class="gear-btn" title="Drop one ${e.replace(/"/g,"&quot;")}"
-                      onclick="event.stopPropagation();dropItem('${escQ(e)}')">−</button>
-                    <button class="gear-btn" title="Add another ${e.replace(/"/g,"&quot;")}"
-                      onclick="event.stopPropagation();addOneMore('${escQ(e)}')">+</button></span>`:""}</li>`
+                    <button class="gear-btn" title="Drop one ${escAttr(e)}"
+                      onclick="event.stopPropagation();dropItem('${escJs(e)}')">−</button>
+                    <button class="gear-btn" title="Add another ${escAttr(e)}"
+                      onclick="event.stopPropagation();addOneMore('${escJs(e)}')">+</button></span>`:""}</li>`
         ).join("") || "<li>--</li>"}</ul>
-        ${(state.attuned||[]).length?`<div style="font-size:.8rem;color:var(--muted)">✦ <span class="ref-link" onclick="refLookup('Attunement')">Attuned</span> to ${state.attuned.length} of ${ATTUNEMENT_MAX}: ${state.attuned.join(", ")}</div>`:""}
+        ${(state.attuned||[]).length?`<div style="font-size:.8rem;color:var(--muted)">✦ <span class="ref-link" onclick="refLookup('Attunement')">Attuned</span> to ${state.attuned.length} of ${ATTUNEMENT_MAX}: ${escHtml(state.attuned.join(", "))}</div>`:""}
         ${canAct?`<button class="gear-btn wide" onclick="openGear()">+ Add Equipment</button>`:""}
       </div>
     </div>
     ${rpBlock}
     <h3 class="section">Notes</h3>
-    <textarea id="sheetNotes" rows="3" placeholder="Session notes, loot, leads, NPC names...">${(state.notes||"").replace(/</g,"&lt;")}</textarea>
+    <textarea id="sheetNotes" rows="3" placeholder="Session notes, loot, leads, NPC names...">${escHtml(state.notes)}</textarea>
     <h3 class="section" style="cursor:pointer;user-select:none" onclick="toggleRollLog()" title="Rolls, level-ups, edits, rests, and status changes">📜 History ${showRollLog?"▾":"▸"} <small style="color:var(--muted)">(${histLog.length})</small></h3>
     ${showRollLog ? `
       <ul class="clean">${histLog.length ? histLog.map(r=>
-        `<li>${HIST_ICONS[r.type]||"·"} ${r.text}${r.who?` <small style="color:var(--muted)">· ${r.who}</small>`:""} <small style="color:var(--muted)">${r.at}</small></li>`).join("")
+        // r.text is markup by design and is escaped where it is written; the
+        // name and timestamp beside it are plain text and are escaped here
+        `<li>${HIST_ICONS[r.type]||"·"} ${r.text}${r.who?` <small style="color:var(--muted)">· ${escHtml(r.who)}</small>`:""} <small style="color:var(--muted)">${escHtml(r.at)}</small></li>`).join("")
         : '<li style="color:var(--muted)">Nothing yet: rolls, level-ups, rests, edits, and dramatic events will be recorded here.</li>'}</ul>
       ${histLog.length?`<button onclick="clearRollLog()" style="margin-top:.4rem;font-size:.8rem">Clear history</button>`:""}` : ""}`;
 
@@ -1214,7 +1232,7 @@ function renderSheet() {
 // Touch screens have no hover, so the bottom bar always waits for a tap.
 const NAV_KEY = "dnd-srd-nav";
 let navMode = "hover";
-try { navMode = localStorage.getItem(NAV_KEY) || "hover"; } catch(e) {}
+try { navMode = localStorage.getItem(NAV_KEY) || "hover"; } catch(e) {}   // already guarded
 const navHoverable = () => navMode === "hover" &&
   window.matchMedia("(hover: hover) and (pointer: fine)").matches &&
   window.matchMedia("(min-width: 601px)").matches;
@@ -1428,6 +1446,17 @@ function requestPersistentStorage() {
     .catch(() => {});
 }
 
+// A character's id is the moment it was saved, and two saves can land in the
+// same millisecond: "Add Random Character" twice in a row is enough. Two
+// characters sharing an id makes View, Edit and Delete act on whichever comes
+// first, so step past anything already taken.
+function newCharId(list) {
+  const taken = new Set((list || loadStore()).map(c=>c.id));
+  let id = Date.now();
+  while (taken.has(id)) id++;
+  return id;
+}
+
 function updateSavedCount() {
   const n = loadStore().length;
   document.getElementById("savedCount").textContent = n ? `(${n})` : "";
@@ -1470,10 +1499,10 @@ function saveCharacter() {
   if (existingIdx >= 0) {
     snapshot.id = state.loadedId;
     const diffs = charDiff(list[existingIdx], snapshot);
-    if (diffs.length) logEvent("edit", `<b>Edited</b>: ${diffs.join("; ")}`);
+    if (diffs.length) logEvent("edit", `<b>Edited</b>: ${escHtml(diffs.join("; "))}`);
     list[existingIdx] = snapshot;
   } else {
-    snapshot.id = Date.now();
+    snapshot.id = newCharId(list);
     list.push(snapshot);
   }
   saveStore(list);
@@ -1556,7 +1585,7 @@ function addRandomCharacter() {
 function resurrectCurrent() {
   if (!state.retired) return;
   state.retired = false; state.curHp = 1; state.deathS = 0; state.deathF = 0; state.stable = false;
-  logEvent("heal", `<b>${state.name || "Unnamed Hero"} resurrected</b>: called back from beyond the veil with 1 HP`);
+  logEvent("heal", `<b>${escHtml(state.name) || "Unnamed Hero"} resurrected</b>: called back from beyond the veil with 1 HP`);
   renderSheet(); persistLoaded(); renderSavedList();
 }
 
@@ -1566,7 +1595,7 @@ function resurrectCharacter(id) {
   if (!ch || !ch.retired) return;
   ch.retired = false; ch.curHp = 1; ch.deathS = 0; ch.deathF = 0; ch.stable = false;
   saveStore(list);
-  logEvent("heal", `<b>${ch.name || "Unnamed Hero"} resurrected</b>: called back from beyond the veil with 1 HP`);
+  logEvent("heal", `<b>${escHtml(ch.name) || "Unnamed Hero"} resurrected</b>: called back from beyond the veil with 1 HP`);
   if (state.loadedId === id) {
     state.retired = false; state.curHp = 1; state.deathS = 0; state.deathF = 0; state.stable = false;
     renderSheet();
@@ -1589,8 +1618,8 @@ function renderSavedList() {
   if (!list.length) { el.innerHTML = '<div class="empty">No saved characters yet. Build one and hit Save.</div>'; return; }
   el.innerHTML = list.map(ch=>`
     <div class="saved-card">
-      <div class="who"><b>${ch.name || "Unnamed Hero"}</b>${ch.retired?' <span title="Laid to rest">🪦</span>':""}<br>
-        <small>Level ${ch.level||1} ${ch.species} ${ch.cls} · ${ch.background || "no background"}${ch.retired?" · <b>dead</b>":""} · saved ${ch.savedAt}</small></div>
+      <div class="who"><b>${escHtml(ch.name) || "Unnamed Hero"}</b>${ch.retired?' <span title="Laid to rest">🪦</span>':""}<br>
+        <small>Level ${escHtml(ch.level||1)} ${escHtml(ch.species)} ${escHtml(ch.cls)} · ${escHtml(ch.background) || "no background"}${ch.retired?" · <b>dead</b>":""} · saved ${escHtml(ch.savedAt)}</small></div>
       <div class="btns">
         <button onclick="viewCharacter(${ch.id})">View</button>
         <button onclick="loadCharacter(${ch.id})">Edit</button>
@@ -1607,12 +1636,12 @@ function duplicateCharacter(id) {
   const ch = list.find(c=>c.id===id);
   if (!ch) return;
   const copy = JSON.parse(JSON.stringify(ch));
-  copy.id = Date.now();
+  copy.id = newCharId(list);
   copy.name = `${ch.name || "Unnamed Hero"} (copy)`;
   copy.savedAt = new Date().toLocaleString();
   list.push(copy);
   saveStore(list);
-  logEvent("edit", `<b>Copied</b> ${ch.name || "Unnamed Hero"} to "${copy.name}"`);
+  logEvent("edit", `<b>Copied</b> ${escHtml(ch.name) || "Unnamed Hero"} to "${escHtml(copy.name)}"`);
   renderSavedList(); updateSavedCount();
 }
 
@@ -1660,7 +1689,7 @@ function checkSharedLink() {
   history.replaceState(null, "", location.pathname + location.search);
   if (!confirm(`Add the shared character "${ch.name || "Unnamed Hero"}" (level ${ch.level||1} ${ch.species||""} ${ch.cls}) to this browser?`)) return;
   const list = loadStore();
-  ch.id = Date.now();
+  ch.id = newCharId(list);
   ch.savedAt = new Date().toLocaleString();
   list.push(ch);
   saveStore(list);
@@ -1723,7 +1752,10 @@ function restoreCharacters(input) {
       incoming.forEach(ch => {
         if (!ch || !ch.cls) { skipped++; return; }
         const copy = JSON.parse(JSON.stringify(ch));
-        if (copy.id == null || ids.has(copy.id)) copy.id = Date.now() + Math.floor(Math.random()*1e6);
+        if (typeof copy.id !== "number" || !isFinite(copy.id) || ids.has(copy.id)) {
+          copy.id = Date.now() + Math.floor(Math.random()*1e6);
+          while (ids.has(copy.id)) copy.id++;
+        }
         ids.add(copy.id);
         list.push(copy);
         added++;
@@ -1790,13 +1822,26 @@ function setRuleFilter(c) {
   renderRules(rulesInput.value);
 }
 
+// Descriptions carry markup, and both the search and the highlighter have to
+// look past it. Matching the raw string made "br" hit every entry holding a
+// <br>, roughly half the library; highlighting the raw string let a query like
+// "i>" rewrite a real tag, which turned part of a card into an HTML comment and
+// swallowed the text after it.
+const plainOf = r => r._plain != null ? r._plain : (r._plain = String(r.d).replace(/<[^>]*>/g, " ").toLowerCase());
+
 function renderRules(q) {
   q = (q||"").trim().toLowerCase();
   let pool = RULES;
   if (ruleFilter) pool = pool.filter(r=>ruleCat(r)===ruleFilter);
   let hits = !q ? pool : pool.filter(r =>
-    r.t.toLowerCase().includes(q) || r.d.toLowerCase().includes(q) || r.c.toLowerCase().includes(q));
-  const hi = txt => q ? txt.replace(new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi"), "<mark>$1</mark>") : txt;
+    r.t.toLowerCase().includes(q) || plainOf(r).includes(q) || r.c.toLowerCase().includes(q));
+  const hi = txt => {
+    if (!q) return txt;
+    const re = new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","gi");
+    // splitting on tags keeps them as their own pieces, which are left alone
+    return String(txt).split(/(<[^>]*>)/).map(part =>
+      part.charAt(0) === "<" ? part : part.replace(re, "<mark>$1</mark>")).join("");
+  };
   // Creatures sort by challenge. Everything else keeps its natural order until
   // a search is typed, at which point a hit on the name beats a hit buried in
   // the text: with a couple of thousand items in the pool, searching "torch"
@@ -2286,7 +2331,18 @@ function toggleInspiration() {
 function deathPip(kind, n) {
   pushUndo("the death save mark");
   const key = kind === "S" ? "deathS" : "deathF";
+  const before = state[key];
   state[key] = state[key] >= n ? n - 1 : n;
+  // Reaching three by hand is the same outcome as rolling into it, so it is
+  // recorded the same way rather than only changing the pips
+  if (key === "deathF" && before < 3 && state.deathF >= 3) {
+    STATS.death.died++; saveStats();
+    logEvent("status", `<b>Died</b>: three Death Save failures`);
+  }
+  if (key === "deathS" && before < 3 && state.deathS >= 3) {
+    state.stable = true;
+    logEvent("status", `<b>Stabilized</b>: three Death Save successes`);
+  }
   renderSheet();
   persistLoaded();
 }
@@ -2573,7 +2629,14 @@ function lvlConfirm() {
   }
   STATS.lvl.ups++;
   tally(STATS.lvl.by, state.cls);
-  logEvent("level", `<b>Level ${state.level}</b> ${state.cls}: +${gain} HP die (${mode==="roll"?"rolled":"average"})${subText?` · subclass: ${subText}`:""}${asiText?` · ASI: ${asiText}`:""}${featText?` · feat: ${featText}`:""}${newFeats?` · gained: ${newFeats}`:""}${subFeats?` · ${state.subclass}: ${subFeats}`:""}${learned.length?` · learned: ${learned.join(", ")}`:""}`);
+  // A custom subclass name and its features are the player's own words, and the
+  // log is stored and drawn as markup, so the whole tail is escaped as one piece
+  logEvent("level", `<b>Level ${state.level} ${escHtml(state.cls)}</b>: ` + escHtml(
+    `+${gain} HP die (${mode==="roll"?"rolled":"average"})` +
+    (subText?` · subclass: ${subText}`:"") + (asiText?` · ASI: ${asiText}`:"") +
+    (featText?` · feat: ${featText}`:"") + (newFeats?` · gained: ${newFeats}`:"") +
+    (subFeats?` · ${state.subclass}: ${subFeats}`:"") +
+    (learned.length?` · learned: ${learned.join(", ")}`:"")));
   lvlCancel();
   renderSheet();
   persistLoaded();
@@ -2590,7 +2653,26 @@ function lvlConfirm() {
 
 // Close the modal from the backdrop or Escape (same as Cancel: nothing applied)
 document.getElementById("lvlOverlay").addEventListener("click", e=>{ if (e.target.id==="lvlOverlay") lvlCancel(); });
-document.addEventListener("keydown", e=>{ if (e.key==="Escape" && pendingLvl) lvlCancel(); });
+// Escape closes whichever overlay is on top, innermost first: the reference
+// can be opened from inside the level-up modal, so closing both at once would
+// throw away a level-up the player only wanted to read a term from. The dying
+// overlay is deliberately not in this list; it is not dismissable.
+const ESC_CLOSERS = [
+  ["refOverlay",   refClose],
+  ["atkOverlay",   ()=>atkClose()],
+  ["spellOverlay", ()=>spellClose()],
+  ["concOverlay",  ()=>concClose()],
+  ["gearOverlay",  ()=>gearClose()],
+  ["restOverlay",  ()=>restCancel()],
+  ["lvlOverlay",   ()=>lvlCancel()]
+];
+document.addEventListener("keydown", e=>{
+  if (e.key !== "Escape") return;
+  for (const [id, close] of ESC_CLOSERS) {
+    const el = document.getElementById(id);
+    if (el && el.classList.contains("open")) { close(); return; }
+  }
+});
 
 // ---------- EQUIPMENT ----------
 // What the character is actually carrying: starting gear minus anything dropped,
@@ -2633,7 +2715,7 @@ function toggleAttune(name) {
   if (i >= 0) {
     pushUndo(`unattuning ${name}`);
     list.splice(i,1);
-    logEvent("gear", `Ended attunement to <b>${name}</b>`);
+    logEvent("gear", `Ended attunement to <b>${escHtml(name)}</b>`);
   } else {
     if (list.length >= ATTUNEMENT_MAX) {
       alert(`You can be attuned to at most ${ATTUNEMENT_MAX} items. End one attunement first.`);
@@ -2642,7 +2724,7 @@ function toggleAttune(name) {
     pushUndo(`attuning to ${name}`);
     list.push(name);
     STATS.gear.attuned++;
-    logEvent("gear", `Attuned to <b>${name}</b> (${list.length} of ${ATTUNEMENT_MAX})`);
+    logEvent("gear", `Attuned to <b>${escHtml(name)}</b> (${list.length} of ${ATTUNEMENT_MAX})`);
   }
   renderSheet(); persistLoaded();
 }
@@ -2665,7 +2747,7 @@ function dropItem(name) {
   }
   STATS.gear.dropped++;
   saveStats();
-  logEvent("gear", `Dropped <b>${name}</b>${FOCUS_RE.test(name)?" · spellcasting focus lost":""}${unattuned?" · attunement ended":""}`);
+  logEvent("gear", `Dropped <b>${escHtml(name)}</b>${FOCUS_RE.test(name)?" · spellcasting focus lost":""}${unattuned?" · attunement ended":""}`);
   renderSheet(); persistLoaded();
 }
 
@@ -2682,7 +2764,7 @@ function renderGearModal() {
   const others = Object.keys(EQUIPMENT_DEFS).filter(n=>!weapons.includes(n));
   const magic = Object.keys(MAGIC_ITEMS);
   const match = n => !q || n.toLowerCase().includes(q);
-  const row = n => `<div class="chooser-row" onclick="addGear('${escQ(n)}')" title="Add ${n}">
+  const row = n => `<div class="chooser-row" onclick="addGear('${escJs(n)}')" title="Add ${escAttr(n)}">
       <div><b>${n}</b>${WEAPONS[n]?` <small style="color:var(--accent)">weapon</small>`:""}${needsAttunement(n)?` <small style="color:var(--accent2)">attunement</small>`:""}</div>
       <div style="font-size:.85rem;color:var(--muted)">${allDice(WEAPONS[n] ? `${WEAPONS[n].dmg} damage${WEAPONS[n].fin?", Finesse":""}${WEAPONS[n].rng?", Ranged":""}` : (MAGIC_ITEMS[n] ? MAGIC_ITEMS[n].d : EQUIPMENT_DEFS[n]||""))}</div>
     </div>`;
@@ -2725,7 +2807,7 @@ function addGear(name, quiet) {
   state.gear = [...(state.gear||[]), name];
   STATS.gear.picked++;
   tally(STATS.gear.by, name);
-  logEvent("gear", `Picked up <b>${name}</b>${WEAPONS[name]?" (added to Attacks)":""}${needsAttunement(name)?" · requires Attunement":""}`);
+  logEvent("gear", `Picked up <b>${escHtml(name)}</b>${WEAPONS[name]?" (added to Attacks)":""}${needsAttunement(name)?" · requires Attunement":""}`);
   renderSheet(); persistLoaded();
   if (!quiet) gearClose();
 }
@@ -2785,13 +2867,13 @@ let pendingConc = null;
 
 function startConcentration(spellName) {
   if (state.conc && state.conc !== spellName) {
-    logEvent("cast", `Concentration on <b>${state.conc}</b> ends (started ${spellName})`);
+    logEvent("cast", `Concentration on <b>${escHtml(state.conc)}</b> ends (started ${escHtml(spellName)})`);
   }
   state.conc = spellName;
 }
 function dropConc(reason) {
   if (!state.conc) return;
-  logEvent("cast", `Concentration on <b>${state.conc}</b> ends${reason?` (${reason})`:""}`);
+  logEvent("cast", `Concentration on <b>${escHtml(state.conc)}</b> ends${reason?` (${escHtml(reason)})`:""}`);
   state.conc = null;
   renderSheet(); persistLoaded();
 }
@@ -2935,6 +3017,12 @@ function restFinish() {
   const back = refillResources("short");
   if (back.length) extra += `, restored ${back.join(", ")}`;
   STATS.rest.short++; STATS.rest.hitDice += spent;
+  // Rest healing bypasses changeHp(), so it has to be counted here or the Stats
+  // page reads as though nobody ever recovered from anything
+  if (healed > 0) {
+    STATS.hp.healed += healed;
+    STATS.hp.biggestHeal = Math.max(STATS.hp.biggestHeal, healed);
+  }
   logEvent("rest", `<b>Short Rest</b>: spent ${spent} Hit ${spent===1?"Die":"Dice"}, healed ${healed} HP${extra}`);
   restCancel();
   renderSheet(); persistLoaded();
@@ -3004,7 +3092,13 @@ function longRestConfirm() {
       spellNote += `, prepared ${added.join(", ")||"no new spells"}${removed.length?` (dropped ${removed.join(", ")})`:""}`;
   }
   STATS.rest.long++;
-  logEvent("longrest", `<b>Long Rest</b>: HP fully restored${healed?` (+${healed})`:""}, spell slots refreshed${hdBack?`, recovered ${hdBack} Hit ${hdBack===1?"Die":"Dice"}`:""}${spellNote}`);
+  if (healed > 0) {
+    STATS.hp.healed += healed;
+    STATS.hp.biggestHeal = Math.max(STATS.hp.biggestHeal, healed);
+  }
+  // spellNote lists spell names, which on an imported character are whatever
+  // the file said they were
+  logEvent("longrest", `<b>Long Rest</b>: HP fully restored${healed?` (+${healed})`:""}, spell slots refreshed${hdBack?`, recovered ${hdBack} Hit ${hdBack===1?"Die":"Dice"}`:""}${escHtml(spellNote)}`);
   pendingLR = null;
   restCancel();
   renderSheet(); persistLoaded();
@@ -3020,7 +3114,7 @@ function retireCharacter() {
     // Never saved: save now so the fallen hero is kept
     const list = loadStore();
     const snapshot = JSON.parse(JSON.stringify(state));
-    snapshot.id = Date.now();
+    snapshot.id = newCharId(list);
     snapshot.savedAt = new Date().toLocaleString();
     state.loadedId = snapshot.id;
     list.push(snapshot);
@@ -3035,7 +3129,7 @@ function renderDownOverlay() {
   const show = state.cls && state.maxHp!=null && state.curHp===0 && !state.retired;
   el.classList.toggle("open", !!show);
   if (!show) return;
-  const who = state.name || "Your hero";
+  const who = escHtml(state.name) || "Your hero";
   const dead = state.deathF >= 3;
   const stable = state.stable || state.deathS >= 3;
   const pips = k => [1,2,3].map(i=>state[k]>=i?"●":"○").join(" ");
@@ -3109,7 +3203,13 @@ function downDamage(n) {
 }
 
 function revive(hp, how) {
+  const before = state.curHp;
   state.curHp = Math.min(state.maxHp, Math.max(1, hp));
+  // Coming back from 0 is the same event changeHp() counts when healing does it
+  if (before === 0) STATS.hp.revived++;
+  const got = Math.max(0, state.curHp - before);
+  if (got) { STATS.hp.healed += got; STATS.hp.biggestHeal = Math.max(STATS.hp.biggestHeal, got); }
+  saveStats();
   state.deathS = 0; state.deathF = 0; state.stable = false;
   logEvent("heal", `<b>Back from the brink</b>: ${how}, up with ${state.curHp} HP`);
   renderSheet(); persistLoaded();
@@ -3119,7 +3219,7 @@ function revive(hp, how) {
 const escQ = s => s.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
 // Clickable term that opens the reference overlay; optional label shows different text
 function refLink(term, label) {
-  return `<span class="ref-link" onclick="refLookup('${escQ(term)}')" title="What is this?">${label||term}</span>`;
+  return `<span class="ref-link" onclick="refLookup('${escJs(term)}')" title="What is this?">${escHtml(label||term)}</span>`;
 }
 function refLookup(term) {
   const q = term.toLowerCase();
@@ -3141,7 +3241,7 @@ function refLookup(term) {
   }
   if (!hits.length) hits = RULES.filter(r=>r.d.toLowerCase().includes(q)).slice(0,3);
   document.getElementById("refModal").innerHTML = `
-    <h3>${term}</h3>
+    <h3>${escHtml(term)}</h3>
     ${hits.length ? hits.map(r=>`<div class="rule-card"><div class="cat">${r.c}</div><h4>${allDice(r.t)}</h4><p>${allDice(r.d)}</p>${r.url?`<a href="${r.url}" target="_blank" rel="noopener" style="font-size:.85rem">Full description on the SRD ↗</a>`:""}</div>`).join("")
       : `<div class="rule-card"><p>No reference entry found. Try the Reference tab's search.</p></div>`}
     <div class="lvl-actions"><button onclick="refClose()">Close</button></div>`;
@@ -3262,7 +3362,9 @@ function atkDamage() {
   const [n, sides] = dicePart.trim().split("d").map(Number);
   const count = a.d20===20 ? n*2 : n;
   const rolls = Array.from({length:count}, ()=>1+Math.floor(Math.random()*sides));
-  const bonus = a.dmgMod + (a.d20===20 ? flat*2 : flat);
+  // A crit doubles the dice only. The ability modifier was never doubled here,
+  // and a flat bonus baked into the dice string is the same kind of number.
+  const bonus = a.dmgMod + flat;
   a.dmgResult = Math.max(0, rolls.reduce((s,v)=>s+v,0) + bonus);
   a.dmgDetail = `${count}d${sides} (${rolls.join(", ")})${bonus?` ${bonus>0?"+":""}${bonus}`:""}${a.type&&a.type!=="spell"?` ${a.type}`:""}`;
   logRoll(`${a.name} ${a.label||"Damage"}`, a.dmgDetail, a.dmgResult);
@@ -3353,14 +3455,17 @@ document.addEventListener("click", e=>{ if (e.target.id==="spellOverlay") spellC
 const THEME_KEY = "dnd-srd-theme";
 function applyTheme(theme) {
   document.body.classList.toggle("dark", theme === "dark");
-  localStorage.setItem(THEME_KEY, theme);
+  // Everything else that touches storage is guarded; this was not, and it runs
+  // at load, so a browser refusing localStorage stopped the script here and
+  // left the rest of the page unwired.
+  try { localStorage.setItem(THEME_KEY, theme); } catch(e) {}
   const on = 'background:var(--accent);color:#fff;border-color:var(--accent);font-weight:bold';
   document.getElementById("btnThemeDark").style.cssText = "flex:1;" + (theme==="dark" ? on : "");
   document.getElementById("btnThemeLight").style.cssText = "flex:1;" + (theme==="light" ? on : "");
 }
 document.getElementById("btnThemeDark").addEventListener("click", ()=>{ applyTheme("dark"); setNavMode(navMode); });
 document.getElementById("btnThemeLight").addEventListener("click", ()=>{ applyTheme("light"); setNavMode(navMode); });
-applyTheme(localStorage.getItem(THEME_KEY) || "dark");
+applyTheme((()=>{ try { return localStorage.getItem(THEME_KEY) || "dark"; } catch(e) { return "dark"; } })());
 
 document.getElementById("btnNavHover").addEventListener("click", ()=>setNavMode("hover"));
 document.getElementById("btnNavClick").addEventListener("click", ()=>setNavMode("click"));
@@ -3455,7 +3560,10 @@ function stDate(iso) {
 function stStreaks(days) {
   const keys = Object.keys(days).sort();
   if (!keys.length) return { current:0, longest:0, active:0 };
-  const dayNo = k => Math.round(Date.parse(k + "T00:00:00") / 86400000);
+  // Compare calendar dates, not instants: parsing the key as local midnight
+  // makes two days either side of a daylight-saving change 23 or 25 hours
+  // apart, which reads as the same day and silently breaks a streak.
+  const dayNo = k => { const [y,m,d] = k.split("-").map(Number); return Date.UTC(y, m-1, d) / 86400000; };
   let longest = 1, run = 1;
   for (let i = 1; i < keys.length; i++) {
     run = dayNo(keys[i]) - dayNo(keys[i-1]) === 1 ? run + 1 : 1;
