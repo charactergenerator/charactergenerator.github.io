@@ -1375,6 +1375,7 @@ function saveStore(list) {
     localStorage.setItem(STORE_KEY, json);
     storeHealthy = true;
     mirrorStore(json, list.length);
+    autosaveSchedule();
     return true;
   } catch(e) {
     // Out of quota, or storage blocked. The list is still in memory, so say so
@@ -1706,14 +1707,14 @@ function backupStatus(msg, good) {
   const el = document.getElementById("backupStatus");
   if (el) el.innerHTML = msg ? `<span style="color:var(--${good===false?"accent2":good?"good":"muted"})">${msg}</span>` : "";
 }
-function backupCharacters() {
+// What a backup file holds. The download button and the auto-saved file both
+// write this, so a file produced either way restores the same and Restore only
+// ever has one shape to understand.
+function backupPayload() {
   const list = loadStore();
-  if (!list.length) { backupStatus("There are no saved characters to back up yet.", false); return; }
-  const stamp = new Date();
-  const pad = n => String(n).padStart(2,"0");
-  const payload = {
+  return {
     format: BACKUP_FORMAT, version: 1,
-    savedAt: stamp.toISOString(),
+    savedAt: new Date().toISOString(),
     count: list.length,
     characters: list,
     // The play tallies ride along so that moving to a new browser carries the
@@ -1721,6 +1722,14 @@ function backupCharacters() {
     // browser that has none of its own; see restoreCharacters().
     stats: STATS
   };
+}
+
+function backupCharacters() {
+  const list = loadStore();
+  if (!list.length) { backupStatus("There are no saved characters to back up yet.", false); return; }
+  const stamp = new Date();
+  const pad = n => String(n).padStart(2,"0");
+  const payload = backupPayload();
   // Date and time, biggest unit first, so a folder of backups sorts by name
   // into the order they were taken and the newest is the one at the bottom.
   // Seconds are in there because two backups a minute apart are common when
@@ -2129,6 +2138,7 @@ function flushStats() {
   if (!statsDirty) return;
   statsDirty = false;
   try { localStorage.setItem(STATS_KEY, JSON.stringify(STATS)); } catch(e) { /* a full quota must not break play */ }
+  autosaveSchedule();
 }
 window.addEventListener("pagehide", flushStats);
 document.addEventListener("visibilitychange", ()=>{ if (document.visibilityState === "hidden") flushStats(); });
@@ -3479,6 +3489,9 @@ document.getElementById("restoreFile").addEventListener("change", e=>restoreChar
 // and it is the difference between "saved" and "saved until the device is
 // short of space", so Settings says which it is.
 function renderStorageStatus() {
+  // opening Settings is the moment to re-check the file, whose permission the
+  // browser may have dropped since the page loaded
+  if (typeof renderAutosave === "function") renderAutosave();
   const el = document.getElementById("storageStatus");
   if (!el) return;
   const n = loadStore().length;
@@ -3885,3 +3898,191 @@ renderRules("");
 renderSkillChoices();
 renderSpellChoices();
 renderSheet();
+
+// ---------- AUTO-SAVE TO A FILE ----------
+// The File System Access API hands back a handle to a file the player picked.
+// The handle is structured-cloneable, so it can live in IndexedDB and outlast a
+// reload, and Chrome can grant it permission for every visit. After one dialog
+// the app writes every character to that file whenever anything changes.
+//
+// Be honest about the limit: clearing site data takes the handle with it, the
+// same as everything else here. What it does not take is the file, which is the
+// whole point. Point it at a synced folder and there is a copy off this machine
+// that survives the browser entirely.
+//
+// Chromium desktop only. Firefox and every browser on iOS and iPadOS have no
+// such API, so the panel never appears there and the Backup button stays the
+// way to get a file out. Same approach as the sibling Listboard project.
+const IDB_NAME = "charactergenerator";
+const IDB_STORE = "kv";
+const IDB_HANDLE_KEY = "autosave-handle";
+const AUTOSAVE_DEBOUNCE = 1500;
+
+const autosaveSupported = () => !!(window.showSaveFilePicker && window.indexedDB);
+
+function idb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(IDB_STORE)) req.result.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbDo(mode, fn) {
+  return idb().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, mode);
+    const req = fn(tx.objectStore(IDB_STORE));
+    tx.oncomplete = () => resolve(req && req.result);
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
+var autosave = { handle:null, name:"", at:null, error:"", perm:"granted", timer:null, busy:false };
+
+function autosaveLoad() {
+  if (!autosaveSupported()) return Promise.resolve();
+  return idbDo("readonly", st => st.get(IDB_HANDLE_KEY))
+    .then(h => {
+      if (!h) return;
+      autosave.handle = h;
+      autosave.name = h.name || "a file";
+      // queryPermission never prompts. Asking needs a user gesture, so whatever
+      // it reports is recorded and acted on from a button rather than nagged
+      // about on load.
+      //
+      // "prompt" is the ordinary case, not a fault: browsers hand out
+      // file-write permission for one visit at a time, so a refresh drops back
+      // to asking unless the grant was made permanent in the browser's own
+      // dialog. "denied" is the real problem. They read very differently and
+      // must not share a message.
+      return h.queryPermission({ mode:"readwrite" }).then(stateName => { autosave.perm = stateName; });
+    })
+    .catch(() => { /* no handle, or storage refused: the Backup button stands */ })
+    .then(renderAutosave);
+}
+
+function autosavePick() {
+  if (!autosaveSupported()) return;
+  window.showSaveFilePicker({
+    // Named for the site rather than just the app, so a file sitting in a
+    // folder months later still says where it came from.
+    suggestedName: "charactergenerator-github-io.json",
+    types: [{ description:"Character Generator backup", accept:{ "application/json":[".json"] } }]
+  }).then(h => {
+    autosave.handle = h;
+    autosave.name = h.name || "a file";
+    autosave.error = "";
+    // Remembering the handle for next time is a nicety. If IndexedDB refuses,
+    // as it does in some private-browsing modes, the handle still works for
+    // this session, so the write goes ahead either way.
+    return idbDo("readwrite", st => st.put(h, IDB_HANDLE_KEY))
+      .catch(()=>{})
+      .then(()=>autosaveWrite(true));
+  }).catch(err => {
+    if (err && err.name === "AbortError") return;   // cancelling the dialog is not a failure
+    autosave.error = (err && err.message) || "could not use that file";
+    renderAutosave();
+  });
+}
+
+function autosaveStop() {
+  autosave.handle = null; autosave.name = ""; autosave.at = null;
+  autosave.error = ""; autosave.perm = "granted";
+  clearTimeout(autosave.timer);
+  idbDo("readwrite", st => st.delete(IDB_HANDLE_KEY))
+    .catch(()=>{})
+    .then(renderAutosave);
+}
+
+// Writes exactly what the Backup button produces, so the file is an ordinary
+// backup that Restore already understands.
+function autosaveWrite(loud) {
+  if (!autosave.handle || autosave.busy) return Promise.resolve();
+  autosave.busy = true;
+  const h = autosave.handle;
+  return h.queryPermission({ mode:"readwrite" }).then(stateName => {
+    autosave.perm = stateName;
+    if (stateName !== "granted") throw new Error("permission");
+    return h.createWritable();
+  }).then(w =>
+    w.write(JSON.stringify(backupPayload(), null, 2)).then(()=>w.close())
+  ).then(() => {
+    autosave.at = new Date();
+    autosave.error = "";
+    if (loud) backupStatus(`Auto-saving to ${autosave.name}.`, true);
+  }).catch(err => {
+    if (!autosave.error) autosave.error = (err && err.message) || "write failed";
+  }).then(() => {
+    autosave.busy = false;
+    renderAutosave();
+  });
+}
+
+// Called from every write to the character store and every flush of the play
+// tallies. Debounced, because a single die roll fires several.
+function autosaveSchedule() {
+  // var, not const, and guarded: saveStore() and flushStats() both call this,
+  // and either can run before this block is evaluated
+  if (!autosave || !autosave.handle) return;
+  clearTimeout(autosave.timer);
+  autosave.timer = setTimeout(()=>autosaveWrite(false), AUTOSAVE_DEBOUNCE);
+}
+
+function autosaveReconnect() {
+  if (!autosave.handle) return;
+  autosave.handle.requestPermission({ mode:"readwrite" }).then(stateName => {
+    autosave.perm = stateName;
+    if (stateName === "granted") { autosave.error = ""; return autosaveWrite(true); }
+    renderAutosave();
+  }).catch(()=>renderAutosave());
+}
+
+function renderAutosave() {
+  const panel = document.getElementById("autosavePanel");
+  if (!panel) return;
+  if (!autosaveSupported()) { panel.hidden = true; return; }
+  panel.hidden = false;
+
+  const on = !!autosave.handle;
+  document.getElementById("btnAutosavePick").textContent = on ? "Choose a different file..." : "📄 Choose a file...";
+  document.getElementById("btnAutosaveNow").hidden = !on;
+  document.getElementById("btnAutosaveStop").hidden = !on;
+
+  const el = document.getElementById("autosaveStatus");
+  if (!on) {
+    el.innerHTML = `<span style="color:var(--muted)">Not set up. Nothing is written anywhere until you pick a file.</span>`;
+    return;
+  }
+  // Paused, which is where a refresh normally leaves things. Said plainly, with
+  // the way to stop it happening every time.
+  if (autosave.perm === "prompt") {
+    el.innerHTML = `Paused. Browsers allow writing to a file for one visit at a time, so this asks
+      again after a refresh. <button class="gear-btn" id="btnAutosaveReconnect">Resume</button>
+      <span style="display:block;margin-top:.4rem;color:var(--muted)">Choosing
+      <b>Allow on every visit</b> in the browser's prompt stops it asking again.</span>`;
+    document.getElementById("btnAutosaveReconnect").addEventListener("click", autosaveReconnect);
+    return;
+  }
+  if (autosave.perm === "denied") {
+    el.innerHTML = `<b style="color:var(--accent2)">This browser is blocking writes to
+      ${escHtml(autosave.name)}.</b> Nothing is being saved to it. Allow file editing for this site
+      in the browser's settings, or pick the file again.
+      <button class="gear-btn" id="btnAutosaveReconnect">Try again</button>`;
+    document.getElementById("btnAutosaveReconnect").addEventListener("click", autosaveReconnect);
+    return;
+  }
+  if (autosave.error) {
+    el.innerHTML = `<b style="color:var(--accent2)">${escHtml(autosave.name)} could not be written:</b>
+      ${escHtml(autosave.error)}`;
+    return;
+  }
+  el.innerHTML = `<span style="color:var(--good)">Saving to ${escHtml(autosave.name)}</span>` +
+    (autosave.at ? `, last written ${escHtml(autosave.at.toLocaleTimeString())}.` : ", not written yet.");
+}
+
+document.getElementById("btnAutosavePick").addEventListener("click", autosavePick);
+document.getElementById("btnAutosaveNow").addEventListener("click", ()=>autosaveWrite(true));
+document.getElementById("btnAutosaveStop").addEventListener("click", autosaveStop);
+autosaveLoad();
