@@ -58,7 +58,6 @@ The sheet is a live play surface, not a printout:
 - 👥 **Your roster**, counted fresh from the saved characters every time: how many, how many still adventuring, average and highest level, hit points and gold between them, and the spread by class and species
 - 🎒 **What they know and carry**: the spells prepared and items carried across the whole roster, with the most popular of each
 - 📅 A **days played** heatmap of the last thirteen weeks, with your current and longest streaks and the date you first opened the app
-- 📚 **The library** itself: how many reference entries are loaded, broken down by type and by source book
 - Everything is counted in your browser and never leaves it. It rides along in the **Backup** file, and a restore adopts it into a browser that has no tally of its own
 
 ## 💾 Your Characters, Kept

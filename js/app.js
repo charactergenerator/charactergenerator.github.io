@@ -1917,7 +1917,6 @@ function onBestiaryLoaded() {
   });
   renderRuleCats();
   renderRules(rulesInput.value);
-  refreshStatsIfOpen();
 }
 
 // ---------- EXTENDED EQUIPMENT ----------
@@ -1962,7 +1961,6 @@ function onItemsLoaded() {
   });
   renderRuleCats();
   renderRules(rulesInput.value);
-  refreshStatsIfOpen();
 }
 
 // Every creature set that has been loaded, newest first, so a name that appears
@@ -2027,7 +2025,6 @@ function onExtraSourcesLoaded() {
 
   renderRuleCats();
   renderRules(rulesInput.value);
-  refreshStatsIfOpen();
 }
 
 function allCreatureSets() {
@@ -3675,15 +3672,6 @@ function renderStats() {
   const itemTotal = Object.values(itemUse).reduce((a,b)=>a+b, 0);
   const featTotal = Object.values(featUse).reduce((a,b)=>a+b, 0);
 
-  // ----- the library -----
-  const libBy = {}, libSrc = {};
-  RULES.forEach(r=>{
-    const c = ruleCat(r); libBy[c] = (libBy[c]||0) + 1;
-    const s = r.src || SRC_SRD; libSrc[s] = (libSrc[s]||0) + 1;
-  });
-  const libLoading = [bestiaryState, itemsState, extraState].some(x=>x === "loading");
-  const libIdle = [bestiaryState, itemsState, extraState].some(x=>x === "idle");
-
   if (!d20Total && !trayTotal && !events && !list.length) {
     el.innerHTML = `<section class="panel">
       <div class="st-empty" style="padding:2rem 1rem;text-align:center">
@@ -3848,25 +3836,7 @@ function renderStats() {
           ${stRow("Events logged", fmtN(events))}
         </div>
       </section>
-
-      <section class="panel span-all">
-        <h3 class="mod-h">The library</h3>
-        <div class="st-rows">
-          ${stRow("Reference entries loaded", fmtN(RULES.length))}
-          ${stRow("Sources", fmtN(Object.keys(libSrc).length))}
-        </div>
-        ${libLoading ? `<div class="st-note">Still loading the bestiary, the item catalogue, and the third-party sources, so these numbers will grow.</div>` : ""}
-        ${libIdle && !libLoading ? `<div class="st-note">Most of the library loads on demand. <span class="ref-link" onclick="loadBestiary();loadItems();loadExtraSources();renderStats()">Load all of it now</span> to count it.</div>` : ""}
-        <h4 class="st-sub">By type</h4>${stBars(stSorted(libBy), {max:10, unit:" entries"})}
-        <h4 class="st-sub">By source</h4>${stBars(stSorted(libSrc), {max:10, unit:" entries"})}
-      </section>
     </div>`;
-}
-// The bestiary, the item catalogue, and the third-party sources land long after
-// the page may have been drawn, and they change what the library holds.
-function refreshStatsIfOpen() {
-  const page = document.getElementById("tab-stats");
-  if (page && page.classList.contains("active")) renderStats();
 }
 
 // ---------- INSTALLABLE APP ----------

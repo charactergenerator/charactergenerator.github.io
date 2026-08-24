@@ -1,13 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="512" height="512">
   <!-- The d20 silhouette on a transparent background, so the tab strip shows
        through around the mark instead of a filled disc. Drawn larger than the
        sidebar brand's knockout, since there is no disc to sit inside, and with
-       a heavier stroke so it still reads at 16px. Follows the page theme where
-       the browser supports it. -->
-  <style>
-    .mark { stroke: #7a1f1f; }
-    @media (prefers-color-scheme: dark) { .mark { stroke: #22c55e; } }
-  </style>
-  <polygon class="mark" points="20,2 35.6,11 35.6,29 20,38 4.4,29 4.4,11"
-           fill="none" stroke-width="4" stroke-linejoin="round"/>
+       a heavier stroke so it still reads at 16px.
+
+       Deliberately plain, the way the sibling DM Screen site's favicon is:
+       explicit width and height as well as a viewBox, and the colour as a
+       stroke attribute rather than a <style> block. WebKit rasterises a
+       favicon SVG outside a browsing context, where an image with no intrinsic
+       size can come out blank, which is what an iPad was showing. The one
+       green is the same TAB ink the PNG favicons use, chosen to survive both a
+       light and a dark tab strip, so every icon now agrees. Following the page
+       theme is worth less than rendering at all. -->
+  <polygon points="20,2 35.6,11 35.6,29 20,38 4.4,29 4.4,11"
+           fill="none" stroke="#1a9c4a" stroke-width="4" stroke-linejoin="round"/>
 </svg>
