@@ -184,7 +184,7 @@ function ico(entries) {
     dir[at + 1] = e.size >= 256 ? 0 : e.size;
     dir[at + 2] = 0;                            // palette size
     dir[at + 3] = 0;                            // reserved
-    dir.writeUInt16LE(1, at + 4);               // colour planes
+    dir.writeUInt16LE(0, at + 4);               // colour planes, 0 like Listboard's
     dir.writeUInt16LE(32, at + 6);              // bits per pixel
     dir.writeUInt32LE(e.data.length, at + 8);
     dir.writeUInt32LE(offset, at + 12);
