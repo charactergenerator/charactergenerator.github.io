@@ -4,20 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>charactergenerator.github.io</title>
-<!-- Listed exactly the way the sibling DM Screen site lists them, which does
-     render on an iPad: the manifest first, then a plain SVG, then plain PNGs at
-     several sizes, with no version query on any of them and no .ico link at all.
-     Safari remembers a page's icon per URL and does not re-ask for a long time,
-     so the PNGs were renamed favicon-N to tab-N to give it URLs it has never
-     failed on. Do not add a `sizes="any"` .ico link: it wins Safari's selection
-     and then draws nothing, because the entries inside an .ico built here are
-     PNGs. -->
-<link rel="manifest" href="manifest.webmanifest?v=114">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="icon" type="image/png" sizes="16x16" href="assets/tab-16.png">
-<link rel="icon" type="image/png" sizes="32x32" href="assets/tab-32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="assets/tab-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="assets/tab-512.png">
+<!-- Copied from the sibling Listboard site, which is the one confirmed to
+     render a favicon in an iPad tab. Three links and no more: the SVG is the
+     real icon, the .ico is what Safari actually draws since it ignores SVG
+     favicons, and the apple-touch-icon covers the iOS home screen. There are
+     deliberately no `rel="icon"` PNGs; Listboard links none, and a longer
+     list only gives Safari's selection more ways to land somewhere it will
+     not draw. The .ico carries an explicit size list rather than
+     `sizes="any"`, which is the form that failed here before. The `?v=` is
+     the lever that makes a fix visible at all: Safari remembers a page's icon
+     per URL, a failure included, so bump it whenever the icons change. -->
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=115">
+<link rel="icon" href="favicon.ico?v=115" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=115">
+<link rel="manifest" href="manifest.webmanifest?v=115">
 <meta name="theme-color" content="#0e0f11" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#eef4ef" media="(prefers-color-scheme: light)">
 <meta name="description" content="Build D&amp;D characters and play from a live sheet: levels 1-20, a searchable reference, and a bestiary. Works offline.">
@@ -25,12 +25,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Characters">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
-<link rel="stylesheet" href="css/style.css?v=114">
+<link rel="stylesheet" href="css/style.css?v=115">
 </head>
 <body>
 <div class="bgimage" aria-hidden="true">
-  <img src="assets/dndlogo1.png?v=114" alt="">
+  <img src="assets/dndlogo1.png?v=115" alt="">
 </div>
 <div class="app">
 <nav class="tabs">
@@ -519,9 +518,9 @@
 
 <div id="rollToast"><div class="what"></div><div class="total"></div><div class="detail"></div></div>
 
-<script src="js/data.js?v=114"></script>
-<script src="js/open5e.js?v=114"></script>
-<script src="js/app.js?v=114"></script>
+<script src="js/data.js?v=115"></script>
+<script src="js/open5e.js?v=115"></script>
+<script src="js/app.js?v=115"></script>
 
 <!-- Default Statcounter code for Character Generator
 https://charactergenerator.github.io/ -->

@@ -1,17 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="512" height="512">
-  <!-- The d20 silhouette on a transparent background, so the tab strip shows
-       through around the mark instead of a filled disc. Drawn larger than the
-       sidebar brand's knockout, since there is no disc to sit inside, and with
-       a heavier stroke so it still reads at 16px.
+  <!-- The d20, filled, on an opaque rounded plate. Built the way the sibling
+       Listboard site builds its favicon, which is the one confirmed to render
+       in an iPad tab: a solid plate and a solid mark, because an outline at
+       16px is a one-pixel ring that covers about a quarter of the tile and
+       disappears. Listboard's own note says the outlined version "collapses
+       into three yellow smudges" at that size; ours collapsed into nothing.
 
-       Deliberately plain, the way the sibling DM Screen site's favicon is:
-       explicit width and height as well as a viewBox, and the colour as a
-       stroke attribute rather than a <style> block. WebKit rasterises a
-       favicon SVG outside a browsing context, where an image with no intrinsic
-       size can come out blank, which is what an iPad was showing. The one
-       green is the same TAB ink the PNG favicons use, chosen to survive both a
-       light and a dark tab strip, so every icon now agrees. Following the page
-       theme is worth less than rendering at all. -->
-  <polygon points="20,2 35.6,11 35.6,29 20,38 4.4,29 4.4,11"
-           fill="none" stroke="#1a9c4a" stroke-width="4" stroke-linejoin="round"/>
+       Geometry is the same hexagon as tools/make-icons.js, scaled to 0.78 of
+       the box to leave the plate a margin; keep the two in step. The green is
+       the TAB ink from that file, which holds up on a light or a dark strip.
+
+       Safari ignores an SVG favicon and draws favicon.ico instead, so this
+       file is what everything else uses. It is kept looking the same as the
+       .ico on purpose. -->
+  <rect width="40" height="40" rx="8" fill="#0e0f11"/>
+  <polygon points="20,5.96 32.168,12.98 32.168,27.02 20,34.04 7.832,27.02 7.832,12.98"
+           fill="#1a9c4a"/>
 </svg>
