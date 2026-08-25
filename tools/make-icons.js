@@ -24,6 +24,9 @@ const TAB    = [0x1a, 0x9c, 0x4a];
 // The mark, in the 40x40 space favicon.svg uses. Same points and stroke as
 // the polygon in favicon.svg; keep the two in step.
 const HEX = [[20,2],[35.6,11],[35.6,29],[20,38],[4.4,29],[4.4,11]];
+
+// The sizes inside favicon.ico, the same three Listboard ships.
+const ICO_SIZES = [16, 32, 48];
 const STROKE = 4;
 
 // distance from a point to a line segment
@@ -45,10 +48,33 @@ function distHex(px, py) {
   return d;
 }
 
+// inside the hexagon, for the filled small mark
+function insideHex(px, py) {
+  let inside = false;
+  for (let i = 0, j = HEX.length - 1; i < HEX.length; j = i++) {
+    const [xi, yi] = HEX[i], [xj, yj] = HEX[j];
+    if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+// inside a rounded rectangle covering the whole canvas, in pixel space
+function insideRound(x, y, size, r) {
+  if (r <= 0) return x >= 0 && y >= 0 && x <= size && y <= size;
+  const cx = Math.min(Math.max(x, r), size - r), cy = Math.min(Math.max(y, r), size - r);
+  return Math.hypot(x - cx, y - cy) <= r;
+}
+
 // One icon. `markScale` is how much of the canvas the mark fills, leaving the
 // rest as padding: maskable icons need their content inside a safe circle.
-function render(size, markScale, transparentBg, ink) {
+//
+// `opts.filled` fills the die instead of stroking its outline, and
+// `opts.radius` rounds the opaque plate, as a fraction of the canvas. Both
+// exist for the small sizes inside favicon.ico. Left off, every pixel of this
+// function behaves exactly as it did, so the install icons are unchanged.
+function render(size, markScale, transparentBg, ink, opts) {
   const MARK = ink || ACCENT;
+  const filled = !!(opts && opts.filled);
+  const radius = (opts && opts.radius) ? opts.radius * size : 0;
   const SS = 4;                        // supersample for smooth edges
   const px = Buffer.alloc(size * size * 4);
   const span = 40 / markScale;         // world units across the canvas
@@ -56,19 +82,24 @@ function render(size, markScale, transparentBg, ink) {
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      let hit = 0;
+      let hit = 0, plate = 0;
       for (let sy = 0; sy < SS; sy++) {
         for (let sx = 0; sx < SS; sx++) {
-          const wx = originX + ((x + (sx+0.5)/SS) / size) * span;
-          const wy = originY + ((y + (sy+0.5)/SS) / size) * span;
-          if (distHex(wx, wy) <= STROKE/2) hit++;   // on the die's outline
+          const sxp = x + (sx+0.5)/SS, syp = y + (sy+0.5)/SS;
+          const wx = originX + (sxp / size) * span;
+          const wy = originY + (syp / size) * span;
+          // on the die's outline, or anywhere inside it when filled
+          if (filled ? insideHex(wx, wy) : distHex(wx, wy) <= STROKE/2) hit++;
+          if (insideRound(sxp, syp, size, radius)) plate++;
         }
       }
-      const a = hit / (SS*SS);
+      let a = hit / (SS*SS);
+      const p = plate / (SS*SS);
+      if (!transparentBg) a = Math.min(a, p);   // the mark cannot spill off the plate
       const i = (y*size + x) * 4;
       // composite the accent mark over the background
       for (let ch = 0; ch < 3; ch++) px[i+ch] = Math.round(MARK[ch]*a + BG[ch]*(1-a));
-      px[i+3] = transparentBg ? Math.round(255*a) : 255;
+      px[i+3] = transparentBg ? Math.round(255*a) : Math.round(255*p);
       if (transparentBg && a > 0) for (let ch = 0; ch < 3; ch++) px[i+ch] = MARK[ch];
     }
   }
@@ -118,27 +149,55 @@ const JOBS = [
   ["icon-512.png",           512, 0.86, false],
   ["icon-maskable-512.png",  512, 0.62, false],   // mark inside the safe circle
   ["apple-touch-icon.png",   180, 0.86, false],   // iOS draws its own rounding
-  // Tab favicons, transparent so they sit on whatever the browser paints
-  // behind them. Named tab-N rather than favicon-N because Safari remembers a
-  // page's icon per URL, including a failure, and would not re-ask under the
-  // old names.
-  ["tab-16.png",              16, 0.94, true, TAB],
-  ["tab-32.png",              32, 0.94, true, TAB],
-  ["tab-48.png",              48, 0.94, true, TAB],
-  // Larger transparent renders for the same tab-icon list. The install icons
-  // at these sizes carry an opaque plate on purpose, and a browser that picked
-  // one of those for a tab would draw a dark square in a light tab strip.
-  ["tab-192.png",            192, 0.94, true, TAB],
-  ["tab-512.png",            512, 0.94, true, TAB]
+  // No transparent tab PNGs. Nothing links them: the tab icon is favicon.svg
+  // and favicon.ico, the way Listboard does it.
 ];
-JOBS.forEach(([name, size, scale, transparent, ink]) => {
+JOBS.forEach(([name, size, scale, transparent, ink, opts]) => {
   const file = path.join(OUT, name);
-  fs.writeFileSync(file, png(size, render(size, scale, transparent, ink)));
+  fs.writeFileSync(file, png(size, render(size, scale, transparent, ink, opts)));
   console.log(`${name.padEnd(24)} ${size}x${size}  ${(fs.statSync(file).size/1024).toFixed(1)} KB`);
 });
 
-// No favicon.ico. The sibling DM Screen site, which renders on an iPad, does
-// not ship one, and ours drew nothing in Safari: every entry inside an .ico
-// built here is a PNG, which Safari's .ico path does not draw. Browsers that
-// ask for /favicon.ico unprompted simply get a 404 and fall back to the linked
-// PNGs.
+// ---- favicon.ico -------------------------------------------------------
+// This is the file an iPad actually draws in a tab: Safari ignores an SVG
+// favicon, and the sibling Listboard site, which does render on an iPad,
+// links nothing else. An .ico is a small header plus one directory entry per
+// size, each holding a whole PNG. Listboard's is built exactly that way, so
+// the PNG payload is not the problem it was once written up as.
+//
+// The art is what makes it legible. Listboard fills its mark solid at these
+// sizes because an outline "collapses into three yellow smudges" at 16px, and
+// ours had the same trouble: a transparent 16px die outline is a 1px ring,
+// about a quarter of the tile covered at all. So the small sizes get the die
+// filled, on an opaque rounded plate, which is what a tab strip needs to show
+// anything.
+function ico(entries) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);              // reserved
+  header.writeUInt16LE(1, 2);              // 1 = icon
+  header.writeUInt16LE(entries.length, 4);
+  const dir = Buffer.alloc(16 * entries.length);
+  let offset = header.length + dir.length;
+  entries.forEach((e, i) => {
+    const at = i * 16;
+    dir[at]     = e.size >= 256 ? 0 : e.size;   // 0 means 256
+    dir[at + 1] = e.size >= 256 ? 0 : e.size;
+    dir[at + 2] = 0;                            // palette size
+    dir[at + 3] = 0;                            // reserved
+    dir.writeUInt16LE(1, at + 4);               // colour planes
+    dir.writeUInt16LE(32, at + 6);              // bits per pixel
+    dir.writeUInt32LE(e.data.length, at + 8);
+    dir.writeUInt32LE(offset, at + 12);
+    offset += e.data.length;
+  });
+  return Buffer.concat([header, dir, ...entries.map(e => e.data)]);
+}
+
+// Filled die, opaque plate rounded like Listboard's (rx 8 in a 40 box).
+const SMALL = { filled: true, radius: 0.2 };
+const ROOT = path.join(__dirname, "..");
+const icoFile = path.join(ROOT, "favicon.ico");
+fs.writeFileSync(icoFile, ico(ICO_SIZES.map(size => ({
+  size, data: png(size, render(size, 0.78, false, TAB, SMALL))
+}))));
+console.log(`${"favicon.ico".padEnd(24)} ${ICO_SIZES.join("+")}  ${(fs.statSync(icoFile).size/1024).toFixed(1)} KB`);
