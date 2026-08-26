@@ -14,12 +14,12 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const ACCENT = [0x22, 0xc5, 0x5e];   // --accent in dark mode
 const BG     = [0x0e, 0x0f, 0x11];   // --bg in dark mode
-// A tab favicon is a flat PNG and cannot follow the page theme the way
-// favicon.svg does, so it needs one green that survives both a light and a
-// dark tab strip. The dark theme's accent is too pale on white and the light
-// theme's is too dim on charcoal; this sits between them at roughly 3.5:1
-// against white and 3.2:1 against a dark strip.
-const TAB    = [0x1a, 0x9c, 0x4a];
+// Every icon this writes now sits on the opaque plate above, so the mark never
+// has to survive a light tab strip and there is no reason to dim it. The
+// dimmer green that used to be here was chosen back when the tab icons were
+// transparent; against the plate it manages about 5:1, where the accent
+// manages about 8.5:1. Listboard's yellow on its own near-black plate is
+// roughly 10:1, which is the relationship being matched.
 
 // The mark, in the 40x40 space favicon.svg uses. Same points and stroke as
 // the polygon in favicon.svg; keep the two in step.
@@ -27,7 +27,10 @@ const HEX = [[20,2],[35.6,11],[35.6,29],[20,38],[4.4,29],[4.4,11]];
 
 // The sizes inside favicon.ico, the same three Listboard ships.
 const ICO_SIZES = [16, 32, 48];
-const STROKE = 4;
+// Listboard's large icons cover 26% of the tile with mark; ours covered 20%
+// at stroke 4, which is a thinner line to lose when a browser downscales a
+// 180 or 512 icon into a tab slot. 5.2 brings the two into line.
+const STROKE = 5.2;
 
 // distance from a point to a line segment
 function distSeg(px, py, ax, ay, bx, by) {
@@ -198,6 +201,6 @@ const SMALL = { filled: true, radius: 0.2 };
 const ROOT = path.join(__dirname, "..");
 const icoFile = path.join(ROOT, "favicon.ico");
 fs.writeFileSync(icoFile, ico(ICO_SIZES.map(size => ({
-  size, data: png(size, render(size, 0.78, false, TAB, SMALL))
+  size, data: png(size, render(size, 0.78, false, ACCENT, SMALL))
 }))));
 console.log(`${"favicon.ico".padEnd(24)} ${ICO_SIZES.join("+")}  ${(fs.statSync(icoFile).size/1024).toFixed(1)} KB`);

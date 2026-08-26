@@ -1,19 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="512" height="512">
-  <!-- The d20, filled, on an opaque rounded plate. Built the way the sibling
-       Listboard site builds its favicon, which is the one confirmed to render
-       in an iPad tab: a solid plate and a solid mark, because an outline at
-       16px is a one-pixel ring that covers about a quarter of the tile and
-       disappears. Listboard's own note says the outlined version "collapses
-       into three yellow smudges" at that size; ours collapsed into nothing.
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <!-- The d20, filled, on an opaque rounded plate, drawn to match the small
+       sizes inside favicon.ico. Built the way the sibling Listboard site
+       builds its favicon: a solid plate and a solid mark, because an outline
+       at 16px is a one-pixel ring covering about a quarter of the tile and it
+       disappears. Listboard's own note says its outlined mark "collapses into
+       three yellow smudges" at that size; ours collapsed into nothing.
 
-       Geometry is the same hexagon as tools/make-icons.js, scaled to 0.78 of
-       the box to leave the plate a margin; keep the two in step. The green is
-       the TAB ink from that file, which holds up on a light or a dark strip.
+       A viewBox and nothing else, which is what Listboard declares. An
+       earlier version here carried width and height as well. They are not
+       what makes an iPad draw the icon, and the file that works does without.
 
-       Safari ignores an SVG favicon and draws favicon.ico instead, so this
-       file is what everything else uses. It is kept looking the same as the
-       .ico on purpose. -->
+       The green is the theme accent rather than the dimmer ink the icons used
+       when they were transparent. The mark now only ever sits on this plate,
+       so it no longer has to survive a light tab strip, and the brighter green
+       roughly doubles its contrast against the plate. Geometry is the same
+       hexagon as tools/make-icons.js at 0.78 of the box; keep the two in step. -->
   <rect width="40" height="40" rx="8" fill="#0e0f11"/>
   <polygon points="20,5.96 32.168,12.98 32.168,27.02 20,34.04 7.832,27.02 7.832,12.98"
-           fill="#1a9c4a"/>
+           fill="#22c55e"/>
 </svg>
