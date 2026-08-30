@@ -170,10 +170,9 @@ JOBS.forEach(([name, size, scale, transparent, ink, opts]) => {
 //
 // The art is what makes it legible. Listboard fills its mark solid at these
 // sizes because an outline "collapses into three yellow smudges" at 16px, and
-// ours had the same trouble: a transparent 16px die outline is a 1px ring,
-// about a quarter of the tile covered at all. So the small sizes get the die
-// filled, on an opaque rounded plate, which is what a tab strip needs to show
-// anything.
+// ours had the same trouble: a 16px die outline is a 1px ring, about a quarter
+// of the tile covered at all. So the small sizes get the die filled. They stay
+// transparent around it, like DM Screen's, which render on an iPad.
 function ico(entries) {
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);              // reserved
@@ -196,11 +195,16 @@ function ico(entries) {
   return Buffer.concat([header, dir, ...entries.map(e => e.data)]);
 }
 
-// Filled die, opaque plate rounded like Listboard's (rx 8 in a 40 box).
-const SMALL = { filled: true, radius: 0.2 };
+// Filled die on a transparent ground, so the tab strip shows through around
+// the mark. The plate that used to be here was added on the theory that an
+// iPad needs one; the sibling DM Screen site's tab icons are transparent and
+// render there, so it does not. What does matter is that the mark is filled:
+// the version that showed nothing was a hairline outline, not a transparent
+// background.
+const SMALL = { filled: true };
 const ROOT = path.join(__dirname, "..");
 const icoFile = path.join(ROOT, "favicon.ico");
 fs.writeFileSync(icoFile, ico(ICO_SIZES.map(size => ({
-  size, data: png(size, render(size, 0.78, false, ACCENT, SMALL))
+  size, data: png(size, render(size, 0.78, true, ACCENT, SMALL))
 }))));
 console.log(`${"favicon.ico".padEnd(24)} ${ICO_SIZES.join("+")}  ${(fs.statSync(icoFile).size/1024).toFixed(1)} KB`);
