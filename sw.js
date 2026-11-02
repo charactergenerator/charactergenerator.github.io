@@ -1,6 +1,6 @@
 // Service worker: makes the app installable and usable with no connection.
 // Bump VERSION on any deploy that should drop the old cache.
-const VERSION = 'v119';
+const VERSION = 'v120';
 const CACHE = `chargen-${VERSION}`;
 
 // Anything a browser might fetch to draw a tab or home-screen icon. The fetch

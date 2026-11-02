@@ -1278,10 +1278,12 @@ const moreSheet = () => document.getElementById("moreSheet");
 function closeMoreSheet() {
   moreSheet().classList.remove("open");
   document.querySelector('.tabs button[data-tab="settings"]').classList.remove("sheet-open");
+  document.querySelector(".tabs").classList.remove("sheet-up");
 }
 function toggleMoreSheet() {
   const open = moreSheet().classList.toggle("open");
   document.querySelector('.tabs button[data-tab="settings"]').classList.toggle("sheet-open", open);
+  document.querySelector(".tabs").classList.toggle("sheet-up", open);
 }
 function openSettingsFromMore() {
   closeMoreSheet();
