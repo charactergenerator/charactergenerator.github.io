@@ -151,12 +151,17 @@ const JOBS = [
   ["icon-192.png",           192, 0.86, false],
   ["icon-512.png",           512, 0.86, false],
   ["icon-maskable-512.png",  512, 0.62, false],   // mark inside the safe circle
-  ["apple-touch-icon.png",   180, 0.86, false],   // iOS draws its own rounding
-  // No transparent tab PNGs. Nothing links them: the tab icon is favicon.svg
-  // and favicon.ico, the way Listboard does it.
+  // The rest go at the site root, where autorolltables keeps them. A browser
+  // building a home-screen shortcut without the manifest asks for
+  // /apple-touch-icon.png at the root whatever the page links, and picks the
+  // largest PNG among the rel="icon" links; with only the SVG and the 48px
+  // .ico to choose from it gave up and drew a letter tile instead.
+  ["apple-touch-icon.png",   180, 0.86, false, null, { root: true }],   // iOS draws its own rounding
+  ["favicon-32x32.png",       32, 0.78, true, ACCENT, { root: true, filled: true }],
+  ["favicon-16x16.png",       16, 0.78, true, ACCENT, { root: true, filled: true }],
 ];
 JOBS.forEach(([name, size, scale, transparent, ink, opts]) => {
-  const file = path.join(OUT, name);
+  const file = path.join(opts && opts.root ? path.join(__dirname, "..") : OUT, name);
   fs.writeFileSync(file, png(size, render(size, scale, transparent, ink, opts)));
   console.log(`${name.padEnd(24)} ${size}x${size}  ${(fs.statSync(file).size/1024).toFixed(1)} KB`);
 });
