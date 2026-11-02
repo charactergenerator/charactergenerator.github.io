@@ -739,6 +739,11 @@
     /* while its sheet is up, More reads as the place you are */
     .tabs button.sheet-open { color: var(--accent); }
     .tabs button.sheet-open svg { stroke: var(--accent); }
+    /* and the page underneath stops reading as one, or the bar shows two
+       places at once: Basics stays .active under the sheet, since closing it
+       goes back there */
+    .tabs.sheet-up button.active:not(.sheet-open) { color: var(--muted); }
+    .tabs.sheet-up button.active:not(.sheet-open) svg { stroke: currentColor; }
   }
 
   /* An ability score is a stepper either side of a number, and at three across
