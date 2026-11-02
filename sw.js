@@ -1,6 +1,6 @@
 // Service worker: makes the app installable and usable with no connection.
 // Bump VERSION on any deploy that should drop the old cache.
-const VERSION = 'v118';
+const VERSION = 'v119';
 const CACHE = `chargen-${VERSION}`;
 
 // Anything a browser might fetch to draw a tab or home-screen icon. The fetch
@@ -9,6 +9,8 @@ const CACHE = `chargen-${VERSION}`;
 const ICON_PATHS = [
   '/favicon.ico',
   '/favicon.svg',
+  '/favicon-16x16.png',
+  '/favicon-32x32.png',
   '/manifest.webmanifest',
   '/apple-touch-icon.png',
   '/icon-192.png',
